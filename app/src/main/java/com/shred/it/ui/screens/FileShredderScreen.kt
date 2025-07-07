@@ -15,6 +15,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,7 +35,6 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -74,13 +74,18 @@ import com.shred.it.core.LogType
 import com.shred.it.core.ShredderProgress
 import com.shred.it.core.ShredderSettings
 import com.shred.it.core.ShredderState
+import com.shred.it.ui.reusable.CustomToast
+import com.shred.it.ui.reusable.ToastManager
+import com.shred.it.ui.reusable.showErrorToast
+import com.shred.it.ui.reusable.showInfoToast
+import com.shred.it.ui.reusable.showSuccessToast
+import com.shred.it.ui.reusable.showWarningToast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import com.shred.it.ui.reusable.*
 
 class FileShredderViewModel : ViewModel() {
     private val core = FileShredderCore()
@@ -134,9 +139,7 @@ class FileShredderViewModel : ViewModel() {
         _settings.value = _settings.value.copy(verifyOverwrites = !_settings.value.verifyOverwrites)
     }
 
-    fun toggleMemory() {
-        _settings.value = _settings.value.copy(secureMemoryHandling = !_settings.value.secureMemoryHandling)
-    }
+
 
     fun formatFileSize(bytes: Long): String = core.formatFileSize(bytes)
 }
@@ -157,7 +160,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
     var confStep by remember { mutableIntStateOf(0) }
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { 
+        uri?.let {
             vm.selectFile(ctx, it)
             toastManager.showInfoToast(
                 heading = "File Selected",
@@ -203,8 +206,8 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "SHRED",
-                color = Color(0xFFE53E3E),
+                text = "Shredder",
+                color = Color(0xFF12F190),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -245,7 +248,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                                     fontSize = 12.sp
                                 )
                             }
-                            IconButton(onClick = { 
+                            IconButton(onClick = {
                                 vm.clearFile()
                                 toastManager.showInfoToast(
                                     heading = "File Cleared",
@@ -262,7 +265,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Row(
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -375,7 +378,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
-            TextButton(onClick = { 
+            TextButton(onClick = {
                 vm.clearLogs()
                 toastManager.showInfoToast(
                     heading = "Logs Cleared",
@@ -506,7 +509,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         title = "Overwrite Rounds",
                         desc = "${set.overwriteRounds}",
                         icon = Icons.Default.Refresh
-                    ) { 
+                    ) {
                         vm.updateRounds(if (set.overwriteRounds < 15) set.overwriteRounds + 1 else 1)
                         toastManager.showInfoToast(
                             heading = "Settings Updated",
@@ -518,7 +521,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         title = "Random Rename",
                         desc = if (set.useRandomRename) "ON" else "OFF",
                         icon = Icons.Default.Edit
-                    ) { 
+                    ) {
                         vm.toggleRename()
                         toastManager.showInfoToast(
                             heading = "Settings Updated",
@@ -530,7 +533,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         title = "Verify Overwrites",
                         desc = if (set.verifyOverwrites) "ON" else "OFF",
                         icon = Icons.Default.CheckCircle
-                    ) { 
+                    ) {
                         vm.toggleVerify()
                         toastManager.showInfoToast(
                             heading = "Settings Updated",
@@ -538,17 +541,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         )
                     }
 
-                    SettingRow(
-                        title = "Secure Memory",
-                        desc = if (set.secureMemoryHandling) "ON" else "OFF",
-                        icon = Icons.Default.Lock
-                    ) { 
-                        vm.toggleMemory()
-                        toastManager.showInfoToast(
-                            heading = "Settings Updated",
-                            description = "Secure memory handling ${if (!set.secureMemoryHandling) "enabled" else "disabled"}"
-                        )
-                    }
+
                 }
             },
             confirmButton = {

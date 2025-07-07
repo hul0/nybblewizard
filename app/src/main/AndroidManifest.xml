@@ -2,10 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- No broad storage permissions typically needed if using SAF correctly. -->
-    <!-- If you have specific needs to browse all media types (e.g., a custom gallery view), -->
-    <!-- you might add granular media permissions like READ_MEDIA_IMAGES, etc. -->
-    <!-- but they are not required for shredding files selected via an SAF picker. -->
+
 
     <application
         android:allowBackup="true"
