@@ -4,65 +4,32 @@ import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Build
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -139,12 +106,10 @@ class FileShredderViewModel : ViewModel() {
         _settings.value = _settings.value.copy(verifyOverwrites = !_settings.value.verifyOverwrites)
     }
 
-
-
     fun formatFileSize(bytes: Long): String = core.formatFileSize(bytes)
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
     val ctx = LocalContext.current
@@ -159,6 +124,31 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
     var showSet by remember { mutableStateOf(false) }
     var confStep by remember { mutableIntStateOf(0) }
 
+    val backgroundAnimation = remember { Animatable(0f) }
+    val titleAnimation = remember { Animatable(0f) }
+    val isShredding = state == ShredderState.OVERWRITING
+
+    LaunchedEffect(Unit) {
+        titleAnimation.animateTo(
+            targetValue = 1f,
+            animationSpec = tween(1000, easing = EaseOutBounce)
+        )
+    }
+
+    LaunchedEffect(isShredding) {
+        if (isShredding) {
+            backgroundAnimation.animateTo(
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2000, easing = EaseInOutSine),
+                    repeatMode = RepeatMode.Reverse
+                )
+            )
+        } else {
+            backgroundAnimation.animateTo(0f)
+        }
+    }
+
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
             vm.selectFile(ctx, it)
@@ -169,7 +159,6 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
         }
     }
 
-    // Monitor state changes for toast notifications
     LaunchedEffect(state) {
         when (state) {
             ShredderState.OVERWRITING -> {
@@ -194,268 +183,543 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
         }
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF0A0A0A))
-            .padding(16.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Shredder",
-                color = Color(0xFF12F190),
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-            IconButton(onClick = { showSet = true }) {
-                Icon(Icons.Default.Settings, contentDescription = null, tint = Color(0xFF666666))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        AnimatedVisibility(
-            visible = file != null,
-            enter = slideInVertically() + fadeIn(),
-            exit = slideOutVertically() + fadeOut()
-        ) {
-            file?.let { f ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = f.name,
-                                    color = Color.White,
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "${vm.formatFileSize(f.size)} • ${f.mimeType}",
-                                    color = Color(0xFF888888),
-                                    fontSize = 12.sp
-                                )
-                            }
-                            IconButton(onClick = {
-                                vm.clearFile()
-                                toastManager.showInfoToast(
-                                    heading = "File Cleared",
-                                    description = "File removed from queue"
-                                )
-                            }) {
-                                Icon(Icons.Default.Close, contentDescription = null, tint = Color(0xFF666666))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = { pick.launch(arrayOf("*/*")) },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF2A2A2A),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(4.dp),
-                enabled = state == ShredderState.IDLE
-            ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("SELECT")
-            }
-
-            Button(
-                onClick = {
-                    if (file != null) {
-                        confStep = 0
-                        showConf = true
-                    } else {
-                        toastManager.showWarningToast(
-                            heading = "No File Selected",
-                            description = "Please select a file to shred first"
-                        )
-                    }
-                },
-                modifier = Modifier.weight(1f),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE53E3E),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(4.dp),
-                enabled = file != null && (state == ShredderState.IDLE || state == ShredderState.FILE_SELECTED)
-            ) {
-                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("SHRED")
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        AnimatedVisibility(
-            visible = prog != null,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut()
-        ) {
-            prog?.let { p ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
-                    shape = RoundedCornerShape(4.dp)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = "Round ${p.currentRound}/${p.totalRounds}",
-                                color = Color.White,
-                                fontSize = 14.sp
-                            )
-                            Text(
-                                text = "${p.progress}%",
-                                color = Color(0xFFE53E3E),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        LinearProgressIndicator(
-                            progress = { p.progress / 100f },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
-                            color = Color(0xFFE53E3E),
-                            trackColor = Color(0xFF333333)
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Text(
-                            text = p.currentOperation,
-                            color = Color(0xFF888888),
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "LOGS",
-                color = Color(0xFF666666),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-            TextButton(onClick = {
-                vm.clearLogs()
-                toastManager.showInfoToast(
-                    heading = "Logs Cleared",
-                    description = "All log entries have been removed"
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFF0A0A0A),
+                        Color(0xFF1A0A0A).copy(alpha = 0.1f + backgroundAnimation.value * 0.3f),
+                        Color(0xFF0A0A0A)
+                    )
                 )
-            }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.Clear,
-                        contentDescription = "Clear Logs",
-                        tint = Color(0xFF666666),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Clear Logs",
-                        color = Color(0xFF666666)
-                    )
-                }
-            }
-        }
-
-        LazyColumn(
+            )
+    ) {
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF1A1A1A))
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(20.dp)
         ) {
-            items(logs) { log ->
-                val col = when (log.type) {
-                    LogType.ERROR -> Color(0xFFFF6B6B)
-                    LogType.WARNING -> Color(0xFFFFD93D)
-                    LogType.SUCCESS -> Color(0xFF6BCF7F)
-                    LogType.PROGRESS -> Color(0xFF4ECDC4)
-                    LogType.INFO -> Color(0xFF888888)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInHorizontally(
+                        initialOffsetX = { -300 },
+                        animationSpec = tween(800, easing = EaseOutBack)
+                    ) + fadeIn(tween(800))
+                ) {
+                    Text(
+                        text = "SHREDDER",
+                        color = Color(0xFF12F190),
+                        fontSize = (28 + titleAnimation.value * 4).sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 2.sp,
+                        modifier = Modifier
+                            .scale(0.9f + titleAnimation.value * 0.1f)
+                            .animateContentSize()
+                    )
+                }
+
+                val settingsScale = remember { Animatable(1f) }
+                val settingsRotation = remember { Animatable(0f) }
+
+                LaunchedEffect(showSet) {
+                    if (showSet) {
+                        settingsRotation.animateTo(
+                            targetValue = 180f,
+                            animationSpec = tween(300, easing = EaseInOutCubic)
+                        )
+                    } else {
+                        settingsRotation.animateTo(0f)
+                    }
+                }
+
+                IconButton(
+                    onClick = { showSet = true },
+                    modifier = Modifier
+                        .scale(settingsScale.value)
+                        .rotate(settingsRotation.value)
+                        .background(
+                            color = Color(0xFF2A2A2A),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .border(
+                            width = 1.dp,
+                            color = Color(0xFF12F190).copy(alpha = 0.3f),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                ) {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = null,
+                        tint = Color(0xFF12F190),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+
+            AnimatedVisibility(
+                visible = file != null,
+                enter = slideInVertically(
+                    initialOffsetY = { -100 },
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                ) + fadeIn(tween(600)) + scaleIn(tween(600, easing = EaseOutBack)),
+                exit = slideOutVertically(
+                    targetOffsetY = { -100 },
+                    animationSpec = tween(400, easing = EaseInBack)
+                ) + fadeOut(tween(400)) + scaleOut(tween(400))
+            ) {
+                file?.let { f ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF1A1A1A)
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 8.dp
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(20.dp)
+                                .animateContentSize()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = f.name,
+                                        color = Color.White,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "${vm.formatFileSize(f.size)} • ${f.mimeType}",
+                                        color = Color(0xFF888888),
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+
+                                val closeScale = remember { Animatable(1f) }
+                                IconButton(
+                                    onClick = {
+                                        vm.clearFile()
+                                        toastManager.showInfoToast(
+                                            heading = "File Cleared",
+                                            description = "File removed from queue"
+                                        )
+                                    },
+                                    modifier = Modifier
+                                        .scale(closeScale.value)
+                                        .background(
+                                            color = Color(0xFF2A2A2A),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = null,
+                                        tint = Color(0xFF666666),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                val selectButtonScale = remember { Animatable(1f) }
+                val shredButtonScale = remember { Animatable(1f) }
+                val shredButtonRotation = remember { Animatable(0f) }
+
+                LaunchedEffect(isShredding) {
+                    if (isShredding) {
+                        shredButtonRotation.animateTo(
+                            targetValue = 360f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(2000, easing = LinearEasing),
+                                repeatMode = RepeatMode.Restart
+                            )
+                        )
+                    } else {
+                        shredButtonRotation.snapTo(0f)
+                    }
                 }
 
                 AnimatedVisibility(
                     visible = true,
-                    enter = slideInVertically() + fadeIn()
+                    enter = slideInHorizontally(
+                        initialOffsetX = { -200 },
+                        animationSpec = tween(600, 200, easing = EaseOutBack)
+                    ) + fadeIn(tween(600, 200))
                 ) {
-                    Text(
-                        text = log.message,
-                        color = col,
-                        fontSize = 12.sp,
-                        modifier = Modifier.animateItem()
+                    Button(
+                        onClick = { pick.launch(arrayOf("*/*")) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                            .scale(selectButtonScale.value),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF2A2A2A),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        enabled = state == ShredderState.IDLE,
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 6.dp,
+                            pressedElevation = 2.dp
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "SELECT",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInHorizontally(
+                        initialOffsetX = { 200 },
+                        animationSpec = tween(600, 400, easing = EaseOutBack)
+                    ) + fadeIn(tween(600, 400))
+                ) {
+                    Button(
+                        onClick = {
+                            if (file != null) {
+                                confStep = 0
+                                showConf = true
+                            } else {
+                                toastManager.showWarningToast(
+                                    heading = "No File Selected",
+                                    description = "Please select a file to shred first"
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                            .scale(shredButtonScale.value),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isShredding) Color(0xFFFF4444) else Color(0xFFE53E3E),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        enabled = file != null && (state == ShredderState.IDLE || state == ShredderState.FILE_SELECTED),
+                        elevation = ButtonDefaults.buttonElevation(
+                            defaultElevation = 6.dp,
+                            pressedElevation = 2.dp
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .rotate(if (isShredding) shredButtonRotation.value else 0f)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = if (isShredding) "SHREDDING" else "SHRED",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = prog != null,
+                enter = slideInVertically(
+                    initialOffsetY = { 100 },
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
                     )
+                ) + fadeIn(tween(600)) + scaleIn(tween(600, easing = EaseOutBack)),
+                exit = slideOutVertically(
+                    targetOffsetY = { 100 },
+                    animationSpec = tween(400, easing = EaseInBack)
+                ) + fadeOut(tween(400)) + scaleOut(tween(400))
+            ) {
+                prog?.let { p ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF1A1A1A)
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(
+                            defaultElevation = 8.dp
+                        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .padding(20.dp)
+                                .animateContentSize()
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                AnimatedContent(
+                                    targetState = "Round ${p.currentRound}/${p.totalRounds}",
+                                    transitionSpec = {
+                                        slideInVertically { -20 } + fadeIn() togetherWith
+                                                slideOutVertically { 20 } + fadeOut()
+                                    }
+                                ) { roundText ->
+                                    Text(
+                                        text = roundText,
+                                        color = Color.White,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                AnimatedContent(
+                                    targetState = "${p.progress}%",
+                                    transitionSpec = {
+                                        slideInVertically { -20 } + fadeIn() togetherWith
+                                                slideOutVertically { 20 } + fadeOut()
+                                    }
+                                ) { progressText ->
+                                    Text(
+                                        text = progressText,
+                                        color = Color(0xFFE53E3E),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF333333))
+                            ) {
+                                AnimatedContent(
+                                    targetState = p.progress / 100f,
+                                    transitionSpec = {
+                                        fadeIn(animationSpec = tween (300) ).togetherWith(fadeOut(animationSpec = tween(300)))
+                                    }
+                                ) { progress ->
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxHeight()
+                                            .fillMaxWidth(progress)
+                                            .background(
+                                                brush = Brush.horizontalGradient(
+                                                    colors = listOf(
+                                                        Color(0xFFE53E3E),
+                                                        Color(0xFFFF6B6B)
+                                                    )
+                                                ),
+                                                shape = RoundedCornerShape(4.dp)
+                                            )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            AnimatedContent(
+                                targetState = p.currentOperation,
+                                transitionSpec = {
+                                    slideInVertically { 20 } + fadeIn() togetherWith
+                                            slideOutVertically { -20 } + fadeOut()
+                                }
+                            ) { operation ->
+                                Text(
+                                    text = operation,
+                                    color = Color(0xFF888888),
+                                    fontSize = 14.sp,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "ACTIVITY LOGS",
+                    color = Color(0xFF666666),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+
+                val clearLogsScale = remember { Animatable(1f) }
+                TextButton(
+                    onClick = {
+                        vm.clearLogs()
+                        toastManager.showInfoToast(
+                            heading = "Logs Cleared",
+                            description = "All log entries have been removed"
+                        )
+                    },
+                    modifier = Modifier.scale(clearLogsScale.value)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Clear,
+                            contentDescription = "Clear Logs",
+                            tint = Color(0xFF666666),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Clear Logs",
+                            color = Color(0xFF666666),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF1A1A1A))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(logs) { log ->
+                    val col = when (log.type) {
+                        LogType.ERROR -> Color(0xFFFF6B6B)
+                        LogType.WARNING -> Color(0xFFFFD93D)
+                        LogType.SUCCESS -> Color(0xFF6BCF7F)
+                        LogType.PROGRESS -> Color(0xFF4ECDC4)
+                        LogType.INFO -> Color(0xFF888888)
+                    }
+
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = slideInVertically(
+                            initialOffsetY = { 50 },
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness = Spring.StiffnessMedium
+                            )
+                        ) + fadeIn(tween(400)) + scaleIn(tween(400, easing = EaseOutBack))
+                    ) {
+                        Text(
+                            text = log.message,
+                            color = col,
+                            fontSize = 13.sp,
+                            modifier = Modifier
+                                .animateItem()
+                                .padding(vertical = 2.dp)
+                        )
+                    }
                 }
             }
         }
     }
 
     if (showConf) {
+        val dialogScale = remember { Animatable(0f) }
+        LaunchedEffect(showConf) {
+            dialogScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            )
+        }
+
         AlertDialog(
             onDismissRequest = { showConf = false },
             containerColor = Color(0xFF1A1A1A),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.scale(dialogScale.value),
             title = {
-                Text(
-                    text = when (confStep) {
+                AnimatedContent(
+                    targetState = when (confStep) {
                         0 -> "CONFIRM SHRED"
                         else -> "FINAL WARNING"
                     },
-                    color = Color(0xFFE53E3E),
-                    fontWeight = FontWeight.Bold
-                )
+                    transitionSpec = {
+                        slideInVertically { -30 } + fadeIn() togetherWith
+                                slideOutVertically { 30 } + fadeOut()
+                    }
+                ) { titleText ->
+                    Text(
+                        text = titleText,
+                        color = Color(0xFFE53E3E),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        letterSpacing = 1.sp
+                    )
+                }
             },
             text = {
-                Text(
-                    text = when (confStep) {
+                AnimatedContent(
+                    targetState = when (confStep) {
                         0 -> "This will permanently destroy the file. Are you sure?"
                         else -> "This action cannot be undone. File will be unrecoverable."
                     },
-                    color = Color.White
-                )
+                    transitionSpec = {
+                        slideInVertically { 30 } + fadeIn() togetherWith
+                                slideOutVertically { -30 } + fadeOut()
+                    }
+                ) { descText ->
+                    Text(
+                        text = descText,
+                        color = Color.White,
+                        fontSize = 16.sp
+                    )
+                }
             },
             confirmButton = {
                 Button(
@@ -471,9 +735,16 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         containerColor = Color(0xFFE53E3E),
                         contentColor = Color.White
                     ),
-                    shape = RoundedCornerShape(4.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 4.dp
+                    )
                 ) {
-                    Text(if (confStep == 0) "CONTINUE" else "DESTROY")
+                    Text(
+                        text = if (confStep == 0) "CONTINUE" else "DESTROY",
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
                 }
             },
             dismissButton = {
@@ -483,28 +754,51 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         containerColor = Color(0xFF2A2A2A),
                         contentColor = Color.White
                     ),
-                    shape = RoundedCornerShape(4.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 4.dp
+                    )
                 ) {
-                    Text("CANCEL")
+                    Text(
+                        text = "CANCEL",
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
                 }
             }
         )
     }
 
     if (showSet) {
+        val settingsDialogScale = remember { Animatable(0f) }
+        LaunchedEffect(showSet) {
+            settingsDialogScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium
+                )
+            )
+        }
+
         AlertDialog(
             onDismissRequest = { showSet = false },
             containerColor = Color(0xFF1A1A1A),
-            shape = RoundedCornerShape(4.dp),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.scale(settingsDialogScale.value),
             title = {
                 Text(
                     text = "SETTINGS",
                     color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    letterSpacing = 1.sp
                 )
             },
             text = {
-                Column {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     SettingRow(
                         title = "Overwrite Rounds",
                         desc = "${set.overwriteRounds}",
@@ -540,8 +834,6 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                             description = "Verify overwrites ${if (!set.verifyOverwrites) "enabled" else "disabled"}"
                         )
                     }
-
-
                 }
             },
             confirmButton = {
@@ -551,15 +843,21 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         containerColor = Color(0xFF2A2A2A),
                         contentColor = Color.White
                     ),
-                    shape = RoundedCornerShape(4.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = ButtonDefaults.buttonElevation(
+                        defaultElevation = 4.dp
+                    )
                 ) {
-                    Text("DONE")
+                    Text(
+                        text = "DONE",
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
                 }
             }
         )
     }
 
-    // Toast component - must be at the end
     CustomToast(
         toastData = toastManager.toastData.value,
         onDismiss = { toastManager.hideToast() }
@@ -573,37 +871,80 @@ fun SettingRow(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val scale = remember { Animatable(1f) }
+    val rotation = remember { Animatable(0f) }
+
+    LaunchedEffect(interactionSource) {
+        scale.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            )
+        )
+    }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(vertical = 8.dp),
+            .scale(scale.value)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null
+            ) {
+                onClick()
+            }
+            .background(
+                color = Color(0xFF2A2A2A),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .border(
+                width = 1.dp,
+                color = Color(0xFF12F190).copy(alpha = 0.2f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             icon,
             contentDescription = null,
-            tint = Color(0xFF666666),
-            modifier = Modifier.size(20.dp)
+            tint = Color(0xFF12F190),
+            modifier = Modifier
+                .size(24.dp)
+                .rotate(rotation.value)
         )
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
                 color = Color.White,
-                fontSize = 14.sp
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
             )
-            Text(
-                text = desc,
-                color = Color(0xFF888888),
-                fontSize = 12.sp
-            )
+            AnimatedContent(
+                targetState = desc,
+                transitionSpec = {
+                    slideInVertically { 20 } + fadeIn() togetherWith
+                            slideOutVertically { -20 } + fadeOut()
+                }
+            ) { description ->
+                Text(
+                    text = description,
+                    color = Color(0xFF888888),
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
         }
         Icon(
             Icons.Default.Build,
             contentDescription = null,
             tint = Color(0xFF666666),
-            modifier = Modifier.size(16.dp)
+            modifier = Modifier
+                .size(20.dp)
+                .rotate(rotation.value * 0.5f)
         )
     }
 }
