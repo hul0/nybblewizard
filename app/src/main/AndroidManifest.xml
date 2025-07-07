@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- No broad storage permissions typically needed if using SAF correctly. -->
+    <!-- If you have specific needs to browse all media types (e.g., a custom gallery view), -->
+    <!-- you might add granular media permissions like READ_MEDIA_IMAGES, etc. -->
+    <!-- but they are not required for shredding files selected via an SAF picker. -->
+
+    <application
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        tools:targetApi="36"> <!-- Set to your highest target API level -->
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            > <!-- Theme can be inherited from application -->
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
