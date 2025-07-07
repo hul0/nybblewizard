@@ -1,12 +1,12 @@
 package com.shred.it.ui.screens
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,7 +14,9 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -27,6 +29,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,18 +38,19 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shred.it.core.FileInfo
-import com.shred.it.core.FileShredderCore
 import com.shred.it.core.LogEntry
 import com.shred.it.core.LogType
 import com.shred.it.core.ShredderProgress
 import com.shred.it.core.ShredderSettings
 import com.shred.it.core.ShredderState
+import com.shred.it.core.FileShredderCore
 import com.shred.it.ui.reusable.CustomToast
 import com.shred.it.ui.reusable.ToastManager
 import com.shred.it.ui.reusable.showErrorToast
 import com.shred.it.ui.reusable.showInfoToast
 import com.shred.it.ui.reusable.showSuccessToast
 import com.shred.it.ui.reusable.showWarningToast
+import com.shred.it.ui.theme.ThemePreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -109,9 +113,14 @@ class FileShredderViewModel : ViewModel() {
     fun formatFileSize(bytes: Long): String = core.formatFileSize(bytes)
 }
 
+
+@SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
+    // Use MaterialTheme.colorScheme everywhere!
+    val scrollState = rememberScrollState()
+    val colors = MaterialTheme.colorScheme
     val ctx = LocalContext.current
     val state by vm.state.collectAsState()
     val prog by vm.progress.collectAsState()
@@ -123,6 +132,16 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
     var showConf by remember { mutableStateOf(false) }
     var showSet by remember { mutableStateOf(false) }
     var confStep by remember { mutableIntStateOf(0) }
+
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val isTablet = screenWidth >= 600.dp
+
+    val contentPadding = if (isTablet) {
+        PaddingValues(horizontal = screenWidth * 0.1f, vertical = 32.dp)
+    } else {
+        PaddingValues(20.dp)
+    }
 
     val backgroundAnimation = remember { Animatable(0f) }
     val titleAnimation = remember { Animatable(0f) }
@@ -189,17 +208,19 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF0A0A0A),
-                        Color(0xFF1A0A0A).copy(alpha = 0.1f + backgroundAnimation.value * 0.3f),
-                        Color(0xFF0A0A0A)
+                        colors.background,
+                        colors.background.copy(alpha = 0.1f + backgroundAnimation.value * 0.3f),
+                        colors.background
                     )
                 )
             )
     ) {
+        // Make all content scrollable except logs, which are independently scrollable with max height
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(20.dp)
+                .verticalScroll(scrollState)
+                .padding(contentPadding)
         ) {
             Row(
                 modifier = Modifier
@@ -217,8 +238,8 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                 ) {
                     Text(
                         text = "SHREDDER",
-                        color = Color(0xFF12F190),
-                        fontSize = (28 + titleAnimation.value * 4).sp,
+                        color = colors.primary,
+                        fontSize = (if (isTablet) 36 else 28 + titleAnimation.value * 4).toInt().sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 2.sp,
                         modifier = Modifier
@@ -227,41 +248,50 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                     )
                 }
 
-                val settingsScale = remember { Animatable(1f) }
-                val settingsRotation = remember { Animatable(0f) }
-
-                LaunchedEffect(showSet) {
-                    if (showSet) {
-                        settingsRotation.animateTo(
-                            targetValue = 180f,
-                            animationSpec = tween(300, easing = EaseInOutCubic)
-                        )
-                    } else {
-                        settingsRotation.animateTo(0f)
-                    }
-                }
-
-                IconButton(
-                    onClick = { showSet = true },
-                    modifier = Modifier
-                        .scale(settingsScale.value)
-                        .rotate(settingsRotation.value)
-                        .background(
-                            color = Color(0xFF2A2A2A),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .border(
-                            width = 1.dp,
-                            color = Color(0xFF12F190).copy(alpha = 0.3f),
-                            shape = RoundedCornerShape(12.dp)
-                        )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        Icons.Default.Settings,
-                        contentDescription = null,
-                        tint = Color(0xFF12F190),
-                        modifier = Modifier.size(24.dp)
-                    )
+                    IconButton(
+                        onClick = { ThemePreferences.isDarkMode = !ThemePreferences.isDarkMode },
+                        modifier = Modifier
+                            .background(
+                                color = colors.surfaceVariant,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = colors.primary.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                    ) {
+                        Icon(
+                            if (ThemePreferences.isDarkMode) Icons.Default.Refresh else Icons.Default.Refresh,
+                            contentDescription = "Toggle theme",
+                            tint = colors.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = { showSet = true },
+                        modifier = Modifier
+                            .background(
+                                color = colors.surfaceVariant,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .border(
+                                width = 1.dp,
+                                color = colors.primary.copy(alpha = 0.3f),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = colors.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 
@@ -273,11 +303,11 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         dampingRatio = Spring.DampingRatioMediumBouncy,
                         stiffness = Spring.StiffnessMedium
                     )
-                ) + fadeIn(tween(600)) + scaleIn(tween(600, easing = EaseOutBack)),
+                ) + fadeIn(tween(600)),
                 exit = slideOutVertically(
                     targetOffsetY = { -100 },
                     animationSpec = tween(400, easing = EaseInBack)
-                ) + fadeOut(tween(400)) + scaleOut(tween(400))
+                ) + fadeOut(tween(400))
             ) {
                 file?.let { f ->
                     Card(
@@ -285,12 +315,9 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                             .fillMaxWidth()
                             .padding(bottom = 20.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF1A1A1A)
+                            containerColor = colors.surface
                         ),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 8.dp
-                        )
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -305,19 +332,18 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = f.name,
-                                        color = Color.White,
-                                        fontSize = 18.sp,
+                                        color = colors.onSurface,
+                                        fontSize = if (isTablet) 20.sp else 18.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                     Text(
                                         text = "${vm.formatFileSize(f.size)} • ${f.mimeType}",
-                                        color = Color(0xFF888888),
-                                        fontSize = 14.sp,
+                                        color = colors.onSurfaceVariant,
+                                        fontSize = if (isTablet) 16.sp else 14.sp,
                                         modifier = Modifier.padding(top = 4.dp)
                                     )
                                 }
 
-                                val closeScale = remember { Animatable(1f) }
                                 IconButton(
                                     onClick = {
                                         vm.clearFile()
@@ -326,17 +352,15 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                                             description = "File removed from queue"
                                         )
                                     },
-                                    modifier = Modifier
-                                        .scale(closeScale.value)
-                                        .background(
-                                            color = Color(0xFF2A2A2A),
-                                            shape = RoundedCornerShape(8.dp)
-                                        )
+                                    modifier = Modifier.background(
+                                        color = colors.surfaceVariant,
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
                                 ) {
                                     Icon(
                                         Icons.Default.Close,
                                         contentDescription = null,
-                                        tint = Color(0xFF666666),
+                                        tint = colors.onSurfaceVariant,
                                         modifier = Modifier.size(20.dp)
                                     )
                                 }
@@ -352,112 +376,66 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                     .padding(bottom = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                val selectButtonScale = remember { Animatable(1f) }
-                val shredButtonScale = remember { Animatable(1f) }
-                val shredButtonRotation = remember { Animatable(0f) }
+                Button(
+                    onClick = { pick.launch(arrayOf("*/*")) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(if (isTablet) 64.dp else 56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = colors.surfaceVariant,
+                        contentColor = colors.onSurface
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = state == ShredderState.IDLE
+                ) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "SELECT",
+                        fontSize = if (isTablet) 18.sp else 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                }
 
-                LaunchedEffect(isShredding) {
-                    if (isShredding) {
-                        shredButtonRotation.animateTo(
-                            targetValue = 360f,
-                            animationSpec = infiniteRepeatable(
-                                animation = tween(2000, easing = LinearEasing),
-                                repeatMode = RepeatMode.Restart
+                Button(
+                    onClick = {
+                        if (file != null) {
+                            confStep = 0
+                            showConf = true
+                        } else {
+                            toastManager.showWarningToast(
+                                heading = "No File Selected",
+                                description = "Please select a file to shred first"
                             )
-                        )
-                    } else {
-                        shredButtonRotation.snapTo(0f)
-                    }
-                }
-
-                AnimatedVisibility(
-                    visible = true,
-                    enter = slideInHorizontally(
-                        initialOffsetX = { -200 },
-                        animationSpec = tween(600, 200, easing = EaseOutBack)
-                    ) + fadeIn(tween(600, 200))
+                        }
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(if (isTablet) 64.dp else 56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isShredding) colors.error else colors.error.copy(alpha = 0.8f),
+                        contentColor = colors.onError
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = file != null && (state == ShredderState.IDLE || state == ShredderState.FILE_SELECTED)
                 ) {
-                    Button(
-                        onClick = { pick.launch(arrayOf("*/*")) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp)
-                            .scale(selectButtonScale.value),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF2A2A2A),
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        enabled = state == ShredderState.IDLE,
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 6.dp,
-                            pressedElevation = 2.dp
-                        )
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = null,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "SELECT",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                    }
-                }
-
-                AnimatedVisibility(
-                    visible = true,
-                    enter = slideInHorizontally(
-                        initialOffsetX = { 200 },
-                        animationSpec = tween(600, 400, easing = EaseOutBack)
-                    ) + fadeIn(tween(600, 400))
-                ) {
-                    Button(
-                        onClick = {
-                            if (file != null) {
-                                confStep = 0
-                                showConf = true
-                            } else {
-                                toastManager.showWarningToast(
-                                    heading = "No File Selected",
-                                    description = "Please select a file to shred first"
-                                )
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp)
-                            .scale(shredButtonScale.value),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isShredding) Color(0xFFFF4444) else Color(0xFFE53E3E),
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        enabled = file != null && (state == ShredderState.IDLE || state == ShredderState.FILE_SELECTED),
-                        elevation = ButtonDefaults.buttonElevation(
-                            defaultElevation = 6.dp,
-                            pressedElevation = 2.dp
-                        )
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(24.dp)
-                                .rotate(if (isShredding) shredButtonRotation.value else 0f)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = if (isShredding) "SHREDDING" else "SHRED",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                    }
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = if (isShredding) "SHREDDING" else "SHRED",
+                        fontSize = if (isTablet) 18.sp else 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
                 }
             }
 
@@ -469,11 +447,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         dampingRatio = Spring.DampingRatioMediumBouncy,
                         stiffness = Spring.StiffnessMedium
                     )
-                ) + fadeIn(tween(600)) + scaleIn(tween(600, easing = EaseOutBack)),
-                exit = slideOutVertically(
-                    targetOffsetY = { 100 },
-                    animationSpec = tween(400, easing = EaseInBack)
-                ) + fadeOut(tween(400)) + scaleOut(tween(400))
+                ) + fadeIn(tween(600))
             ) {
                 prog?.let { p ->
                     Card(
@@ -481,12 +455,9 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                             .fillMaxWidth()
                             .padding(bottom = 20.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF1A1A1A)
+                            containerColor = colors.surface
                         ),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(
-                            defaultElevation = 8.dp
-                        )
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Column(
                             modifier = Modifier
@@ -506,8 +477,8 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                                 ) { roundText ->
                                     Text(
                                         text = roundText,
-                                        color = Color.White,
-                                        fontSize = 16.sp,
+                                        color = colors.onSurface,
+                                        fontSize = if (isTablet) 18.sp else 16.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -520,8 +491,8 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                                 ) { progressText ->
                                     Text(
                                         text = progressText,
-                                        color = Color(0xFFE53E3E),
-                                        fontSize = 16.sp,
+                                        color = colors.error,
+                                        fontSize = if (isTablet) 18.sp else 16.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -534,29 +505,22 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                                     .fillMaxWidth()
                                     .height(8.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xFF333333))
+                                    .background(colors.surfaceVariant)
                             ) {
-                                AnimatedContent(
-                                    targetState = p.progress / 100f,
-                                    transitionSpec = {
-                                        fadeIn(animationSpec = tween (300) ).togetherWith(fadeOut(animationSpec = tween(300)))
-                                    }
-                                ) { progress ->
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxHeight()
-                                            .fillMaxWidth(progress)
-                                            .background(
-                                                brush = Brush.horizontalGradient(
-                                                    colors = listOf(
-                                                        Color(0xFFE53E3E),
-                                                        Color(0xFFFF6B6B)
-                                                    )
-                                                ),
-                                                shape = RoundedCornerShape(4.dp)
-                                            )
-                                    )
-                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(p.progress / 100f)
+                                        .background(
+                                            brush = Brush.horizontalGradient(
+                                                colors = listOf(
+                                                    colors.error,
+                                                    colors.error.copy(alpha = 0.8f)
+                                                )
+                                            ),
+                                            shape = RoundedCornerShape(4.dp)
+                                        )
+                                )
                             }
 
                             Spacer(modifier = Modifier.height(12.dp))
@@ -570,8 +534,8 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                             ) { operation ->
                                 Text(
                                     text = operation,
-                                    color = Color(0xFF888888),
-                                    fontSize = 14.sp,
+                                    color = colors.onSurfaceVariant,
+                                    fontSize = if (isTablet) 16.sp else 14.sp,
                                     textAlign = TextAlign.Center,
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -590,13 +554,12 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
             ) {
                 Text(
                     text = "ACTIVITY LOGS",
-                    color = Color(0xFF666666),
-                    fontSize = 16.sp,
+                    color = colors.onSurfaceVariant,
+                    fontSize = if (isTablet) 18.sp else 16.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
 
-                val clearLogsScale = remember { Animatable(1f) }
                 TextButton(
                     onClick = {
                         vm.clearLogs()
@@ -604,61 +567,53 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                             heading = "Logs Cleared",
                             description = "All log entries have been removed"
                         )
-                    },
-                    modifier = Modifier.scale(clearLogsScale.value)
+                    }
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             Icons.Default.Clear,
                             contentDescription = "Clear Logs",
-                            tint = Color(0xFF666666),
+                            tint = colors.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "Clear Logs",
-                            color = Color(0xFF666666),
-                            fontSize = 14.sp,
+                            color = colors.onSurfaceVariant,
+                            fontSize = if (isTablet) 16.sp else 14.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
                 }
             }
 
-            LazyColumn(
+            // Logs: independently scrollable, max height = 300dp (adjust as needed)
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xFF1A1A1A))
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .background(colors.surface)
+                    .padding(16.dp)
             ) {
-                items(logs) { log ->
-                    val col = when (log.type) {
-                        LogType.ERROR -> Color(0xFFFF6B6B)
-                        LogType.WARNING -> Color(0xFFFFD93D)
-                        LogType.SUCCESS -> Color(0xFF6BCF7F)
-                        LogType.PROGRESS -> Color(0xFF4ECDC4)
-                        LogType.INFO -> Color(0xFF888888)
-                    }
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(logs) { log ->
+                        val logColor = when (log.type) {
+                            LogType.ERROR -> colors.error
+                            LogType.WARNING -> colors.secondary
+                            LogType.SUCCESS -> colors.tertiary
+                            LogType.PROGRESS -> colors.primary
+                            LogType.INFO -> colors.onSurfaceVariant
+                        }
 
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = slideInVertically(
-                            initialOffsetY = { 50 },
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness = Spring.StiffnessMedium
-                            )
-                        ) + fadeIn(tween(400)) + scaleIn(tween(400, easing = EaseOutBack))
-                    ) {
                         Text(
                             text = log.message,
-                            color = col,
-                            fontSize = 13.sp,
-                            modifier = Modifier
-                                .animateItem()
-                                .padding(vertical = 2.dp)
+                            color = logColor,
+                            fontSize = if (isTablet) 15.sp else 13.sp,
+                            modifier = Modifier.padding(vertical = 2.dp)
                         )
                     }
                 }
@@ -667,38 +622,22 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
     }
 
     if (showConf) {
-        val dialogScale = remember { Animatable(0f) }
-        LaunchedEffect(showConf) {
-            dialogScale.animateTo(
-                targetValue = 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            )
-        }
-
         AlertDialog(
             onDismissRequest = { showConf = false },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = colors.surface,
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.scale(dialogScale.value),
             title = {
                 AnimatedContent(
                     targetState = when (confStep) {
                         0 -> "CONFIRM SHRED"
                         else -> "FINAL WARNING"
-                    },
-                    transitionSpec = {
-                        slideInVertically { -30 } + fadeIn() togetherWith
-                                slideOutVertically { 30 } + fadeOut()
                     }
                 ) { titleText ->
                     Text(
                         text = titleText,
-                        color = Color(0xFFE53E3E),
+                        color = colors.error,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp,
+                        fontSize = if (isTablet) 24.sp else 20.sp,
                         letterSpacing = 1.sp
                     )
                 }
@@ -708,16 +647,12 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                     targetState = when (confStep) {
                         0 -> "This will permanently destroy the file. Are you sure?"
                         else -> "This action cannot be undone. File will be unrecoverable."
-                    },
-                    transitionSpec = {
-                        slideInVertically { 30 } + fadeIn() togetherWith
-                                slideOutVertically { -30 } + fadeOut()
                     }
                 ) { descText ->
                     Text(
                         text = descText,
-                        color = Color.White,
-                        fontSize = 16.sp
+                        color = colors.onSurface,
+                        fontSize = if (isTablet) 18.sp else 16.sp
                     )
                 }
             },
@@ -732,18 +667,16 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE53E3E),
-                        contentColor = Color.White
+                        containerColor = colors.error,
+                        contentColor = colors.onError
                     ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 4.dp
-                    )
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
                         text = if (confStep == 0) "CONTINUE" else "DESTROY",
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.sp,
+                        fontSize = if (isTablet) 16.sp else 14.sp
                     )
                 }
             },
@@ -751,18 +684,16 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                 Button(
                     onClick = { showConf = false },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2A2A2A),
-                        contentColor = Color.White
+                        containerColor = colors.surfaceVariant,
+                        contentColor = colors.onSurface
                     ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 4.dp
-                    )
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
                         text = "CANCEL",
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.sp,
+                        fontSize = if (isTablet) 16.sp else 14.sp
                     )
                 }
             }
@@ -770,28 +701,16 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
     }
 
     if (showSet) {
-        val settingsDialogScale = remember { Animatable(0f) }
-        LaunchedEffect(showSet) {
-            settingsDialogScale.animateTo(
-                targetValue = 1f,
-                animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMedium
-                )
-            )
-        }
-
         AlertDialog(
             onDismissRequest = { showSet = false },
-            containerColor = Color(0xFF1A1A1A),
+            containerColor = colors.surface,
             shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.scale(settingsDialogScale.value),
             title = {
                 Text(
                     text = "SETTINGS",
-                    color = Color.White,
+                    color = colors.onSurface,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
+                    fontSize = if (isTablet) 24.sp else 20.sp,
                     letterSpacing = 1.sp
                 )
             },
@@ -840,18 +759,16 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                 Button(
                     onClick = { showSet = false },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2A2A2A),
-                        contentColor = Color.White
+                        containerColor = colors.surfaceVariant,
+                        contentColor = colors.onSurface
                     ),
-                    shape = RoundedCornerShape(12.dp),
-                    elevation = ButtonDefaults.buttonElevation(
-                        defaultElevation = 4.dp
-                    )
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
                         text = "DONE",
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
+                        letterSpacing = 1.sp,
+                        fontSize = if (isTablet) 16.sp else 14.sp
                     )
                 }
             }
@@ -863,45 +780,32 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
         onDismiss = { toastManager.hideToast() }
     )
 }
-
 @Composable
-fun SettingRow(
+private fun SettingRow(
     title: String,
     desc: String,
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val colors = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
-    val scale = remember { Animatable(1f) }
-    val rotation = remember { Animatable(0f) }
-
-    LaunchedEffect(interactionSource) {
-        scale.animateTo(
-            targetValue = 1f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioMediumBouncy,
-                stiffness = Spring.StiffnessMedium
-            )
-        )
-    }
+    val configuration = LocalConfiguration.current
+    val isTablet = configuration.screenWidthDp.dp >= 600.dp
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .scale(scale.value)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null
-            ) {
-                onClick()
-            }
+            ) { onClick() }
             .background(
-                color = Color(0xFF2A2A2A),
+                color = colors.surfaceVariant,
                 shape = RoundedCornerShape(12.dp)
             )
             .border(
                 width = 1.dp,
-                color = Color(0xFF12F190).copy(alpha = 0.2f),
+                color = colors.primary.copy(alpha = 0.2f),
                 shape = RoundedCornerShape(12.dp)
             )
             .padding(16.dp),
@@ -910,17 +814,15 @@ fun SettingRow(
         Icon(
             icon,
             contentDescription = null,
-            tint = Color(0xFF12F190),
-            modifier = Modifier
-                .size(24.dp)
-                .rotate(rotation.value)
+            tint = colors.primary,
+            modifier = Modifier.size(24.dp)
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,
-                color = Color.White,
-                fontSize = 16.sp,
+                color = colors.onSurface,
+                fontSize = if (isTablet) 18.sp else 16.sp,
                 fontWeight = FontWeight.Bold
             )
             AnimatedContent(
@@ -932,8 +834,8 @@ fun SettingRow(
             ) { description ->
                 Text(
                     text = description,
-                    color = Color(0xFF888888),
-                    fontSize = 14.sp,
+                    color = colors.onSurfaceVariant,
+                    fontSize = if (isTablet) 16.sp else 14.sp,
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }
@@ -941,10 +843,8 @@ fun SettingRow(
         Icon(
             Icons.Default.Build,
             contentDescription = null,
-            tint = Color(0xFF666666),
-            modifier = Modifier
-                .size(20.dp)
-                .rotate(rotation.value * 0.5f)
+            tint = colors.onSurfaceVariant,
+            modifier = Modifier.size(20.dp)
         )
     }
 }

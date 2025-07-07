@@ -6,8 +6,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -22,7 +20,6 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Favorite
-
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -54,6 +51,7 @@ import androidx.core.net.toUri
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        //supportActionBar?.hide()
         enableEdgeToEdge()
         setContent {
             ShredItTheme {
@@ -63,7 +61,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Updated Screen sealed class with Support tab
+// Bottom tabs only, no header bar
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Home : Screen("home", "Shredder", Icons.Default.Delete)
     object About : Screen("about", "About", Icons.Default.Info)
@@ -76,19 +74,16 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 fun MainAppScreen() {
     val navController = rememberNavController()
     val context = LocalContext.current
-
-    // Updated screens list to include Support
     val screens = listOf(Screen.Home, Screen.About, Screen.FAQ, Screen.Support)
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background, // Flat background
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
-            // Flat Navigation Bar - remove Surface shadow
             NavigationBar(
-                containerColor = MaterialTheme.colorScheme.surface, // Or surfaceVariant for subtle difference
-                modifier = Modifier.height(70.dp), // Slightly adjusted height
-                tonalElevation = 0.dp // Key for flat look
+                containerColor = MaterialTheme.colorScheme.surface,
+                modifier = Modifier.height(70.dp),
+                tonalElevation = 0.dp
             ) {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
@@ -100,13 +95,13 @@ fun MainAppScreen() {
                             Icon(
                                 screen.icon,
                                 contentDescription = screen.title,
-                                modifier = Modifier.size(24.dp) // Slightly larger icon
+                                modifier = Modifier.size(24.dp)
                             )
                         },
                         label = {
                             Text(
                                 screen.title,
-                                fontSize = 12.sp, // Slightly smaller label
+                                fontSize = 12.sp,
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                             )
                         },
@@ -127,9 +122,9 @@ fun MainAppScreen() {
                             selectedTextColor = MaterialTheme.colorScheme.primary,
                             unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) // More subtle indicator
+                            indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
                         ),
-                        alwaysShowLabel = true // Ensure labels are always visible
+                        alwaysShowLabel = true
                     )
                 }
             }
@@ -140,9 +135,7 @@ fun MainAppScreen() {
             startDestination = Screen.Home.route,
             modifier = Modifier
                 .padding(innerPadding)
-                .fillMaxSize(),
-            enterTransition = { EnterTransition.None }, // Disable default NavHost animations
-            exitTransition = { ExitTransition.None }
+                .fillMaxSize()
         ) {
             composable(Screen.Home.route) {
                 AnimatedScreen { FileShredderScreen() }
@@ -156,85 +149,40 @@ fun MainAppScreen() {
             composable(Screen.Support.route) {
                 AnimatedScreen {
                     SupportScreen(
-                        onBackClick = {
-                            // Navigate back to home or previous screen
-                            navController.navigateUp()
-                        },
+                        onBackClick = { navController.navigateUp() },
                         onRateApp = {
-                            // Open Play Store for rating
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW).apply {
                                     data = "market://details?id=${context.packageName}".toUri()
                                 }
                                 context.startActivity(intent)
                             } catch (_: Exception) {
-                                // Fallback to browser if Play Store is not available
                                 val intent = Intent(Intent.ACTION_VIEW).apply {
-                                    data =
-                                        "https://play.google.com/store/apps/details?id=${context.packageName}".toUri()
+                                    data = "https://play.google.com/store/apps/details?id=${context.packageName}".toUri()
                                 }
                                 context.startActivity(intent)
                             }
                         },
-                        onSupportTier = { tierName ->
-                            // Handle support tier selection
-                            // You can implement payment processing here
-                            // For now, let's show a simple action
-                            when (tierName) {
-                                "Coffee Supporter" -> {
-                                    // Handle coffee tier payment
-                                    // Example: Launch billing flow for $2.99
-                                }
-                                "Premium Supporter" -> {
-                                    // Handle premium tier payment
-                                    // Example: Launch billing flow for $9.99
-                                }
-                                "Ultimate Supporter" -> {
-                                    // Handle ultimate tier payment
-                                    // Example: Launch billing flow for $24.99
-                                }
-                            }
-                        },
+                        onSupportTier = { /* handle support tier */ },
                         onContactSupport = { contactType ->
-                            // Handle contact support actions
-                            when (contactType) {
-                                "bug_report" -> {
-                                    // Open email client for bug report
-                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                        data = "mailto:support@shred-it.com".toUri()
-                                        putExtra(Intent.EXTRA_SUBJECT, "Bug Report - Shred It App")
-                                        putExtra(Intent.EXTRA_TEXT, "Please describe the bug you encountered:\n\n")
-                                    }
-                                    context.startActivity(Intent.createChooser(intent, "Send Bug Report"))
-                                }
-                                "feature_request" -> {
-                                    // Open email client for feature request
-                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                        data = "mailto:support@shred-it.com".toUri()
-                                        putExtra(Intent.EXTRA_SUBJECT, "Feature Request - Shred It App")
-                                        putExtra(Intent.EXTRA_TEXT, "Please describe the feature you'd like to see:\n\n")
-                                    }
-                                    context.startActivity(Intent.createChooser(intent, "Send Feature Request"))
-                                }
-                                "general_support" -> {
-                                    // Open email client for general support
-                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                        data = "mailto:support@shred-it.com".toUri()
-                                        putExtra(Intent.EXTRA_SUBJECT, "General Support - Shred It App")
-                                        putExtra(Intent.EXTRA_TEXT, "How can we help you?\n\n")
-                                    }
-                                    context.startActivity(Intent.createChooser(intent, "Contact Support"))
-                                }
-                                "feedback" -> {
-                                    // Open email client for feedback
-                                    val intent = Intent(Intent.ACTION_SENDTO).apply {
-                                        data = "mailto:support@shred-it.com".toUri()
-                                        putExtra(Intent.EXTRA_SUBJECT, "Feedback - Shred It App")
-                                        putExtra(Intent.EXTRA_TEXT, "We'd love to hear your thoughts:\n\n")
-                                    }
-                                    context.startActivity(Intent.createChooser(intent, "Send Feedback"))
-                                }
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = "mailto:support@shred-it.com".toUri()
+                                putExtra(Intent.EXTRA_SUBJECT, when (contactType) {
+                                    "bug_report" -> "Bug Report - Shred It App"
+                                    "feature_request" -> "Feature Request - Shred It App"
+                                    "general_support" -> "General Support - Shred It App"
+                                    "feedback" -> "Feedback - Shred It App"
+                                    else -> "Support - Shred It App"
+                                })
+                                putExtra(Intent.EXTRA_TEXT, when (contactType) {
+                                    "bug_report" -> "Please describe the bug you encountered:\n\n"
+                                    "feature_request" -> "Please describe the feature you'd like to see:\n\n"
+                                    "general_support" -> "How can we help you?\n\n"
+                                    "feedback" -> "We'd love to hear your thoughts:\n\n"
+                                    else -> ""
+                                })
                             }
+                            context.startActivity(Intent.createChooser(intent, "Contact Support"))
                         }
                     )
                 }
@@ -246,19 +194,12 @@ fun MainAppScreen() {
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun AnimatedScreen(content: @Composable () -> Unit) {
-    // Using AnimatedContent for screen transitions might be complex with NavHost's own transitions.
-    // A simpler approach is to animate visibility of content within each screen,
-    // or use NavHost's built-in transition capabilities if you configure them.
-    // For now, let's make each screen fade in.
-    // If you want more complex NavHost transitions, research `enterTransition` and `exitTransition`
-    // parameters of the `composable` function in NavHost.
-
-    Box(modifier = Modifier.fillMaxSize()) { // Ensure content fills the space
-        // Simple Fade-in for the content of each screen
+    Box(modifier = Modifier.fillMaxSize()) {
         AnimatedVisibility(
-            visible = true, // Content is always visible once composed
-            enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)) + scaleIn(initialScale = 0.98f, animationSpec = androidx.compose.animation.core.tween(durationMillis = 300)),
-            exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(durationMillis = 150))
+            visible = true,
+            enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(320)) +
+                    scaleIn(initialScale = 0.97f, animationSpec = androidx.compose.animation.core.tween(320)),
+            exit = fadeOut(animationSpec = androidx.compose.animation.core.tween(180))
         ) {
             content()
         }

@@ -11,87 +11,84 @@ import androidx.compose.ui.unit.sp
 
 // --- Updated Color Palette for a Flatter, Modern Look ---
 
-// Dark Theme - Deeper background, slightly more vibrant primary for contrast
 private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF7B7EFF), // Slightly brighter violet for better pop on dark bg
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFF4A4AFF), // For subtle indicators or backgrounds
-    onPrimaryContainer = Color(0xFFE0E0FF),
+    primary = Color(0xFF00FFC2),              // Neon Mint (pops on dark, fun/cyber)
+    onPrimary = Color(0xFF1B1B1F),            // Near-black for text/icons on neon
+    primaryContainer = Color(0xFF00554B),     // Deep teal for contrast
+    onPrimaryContainer = Color(0xFF9FFFF3),   // Soft mint text/icons
 
-    secondary = Color(0xFFFF8A80), // iOS red, slightly softer
-    onSecondary = Color.Black,
-    secondaryContainer = Color(0xFFD9665F),
-    onSecondaryContainer = Color.White,
+    secondary = Color(0xFFFF00B8),            // Neon pink/magenta (fun!)
+    onSecondary = Color(0xFF1B1B1F),
+    secondaryContainer = Color(0xFF37003C),   // Deep purple magenta
+    onSecondaryContainer = Color(0xFFFFB3E6),
 
-    tertiary = Color(0xFF64FFDA), // Teal, brighter for accent
-    onTertiary = Color.Black,
-    tertiaryContainer = Color(0xFF00BFA5),
-    onTertiaryContainer = Color.Black,
+    tertiary = Color(0xFF00BFFF),             // Electric blue
+    onTertiary = Color(0xFF1B1B1F),
+    tertiaryContainer = Color(0xFF00374C),    // Deep blue
+    onTertiaryContainer = Color(0xFF99E7FF),
 
-    error = Color(0xFFFF5252), // Standard Material error red
-    onError = Color.White,
-    errorContainer = Color(0xFFD32F2F),
-    onErrorContainer = Color.White,
+    error = Color(0xFFFF6E6E),                // Bright error red
+    onError = Color(0xFF1B1B1F),
+    errorContainer = Color(0xFF470000),
+    onErrorContainer = Color(0xFFFFB4A9),
 
-    background = Color(0xFF0F0F14), // Very dark, almost black for depth
-    onBackground = Color(0xFFEAEAEA), // Light gray for text
+    background = Color(0xFF161622),           // Deep purple-black (better than #0F0F14 for contrast)
+    onBackground = Color(0xFFE9F8FA),         // Soft teal-white for text
 
-    surface = Color(0xFF1A1A20), // Dark gray, distinct from background but still dark
-    onSurface = Color(0xFFEAEAEA), // Consistent light text color
+    surface = Color(0xFF232334),              // Muted indigo
+    onSurface = Color(0xFFE9F8FA),
 
-    surfaceVariant = Color(0xFF2C2C33), // For cards and slightly elevated flat surfaces
-    onSurfaceVariant = Color(0xFFC5C5C9), // Softer text/icon color for variants
+    surfaceVariant = Color(0xFF2C2C40),       // Slightly lighter for cards
+    onSurfaceVariant = Color(0xFFA0A3B1),     // Muted blue-gray
 
-    outline = Color(0xFF404045), // Subtle outlines if needed
-    outlineVariant = Color(0xFF303035) // Even more subtle
+    outline = Color(0xFF00FFC2),              // Neon mint as accent outline
+    outlineVariant = Color(0xFF00554B)        // Deep teal
 )
 
-// Light Theme - Clean, bright, with good contrast
 private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF5D5FEF), // Your original primary, good for light theme
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFDADAFF), // Light container for primary accents
-    onPrimaryContainer = Color(0xFF000056),
+    primary = Color(0xFF7A8B99),            // Gentle blue-grey
+    onPrimary = Color(0xFFF4F6F8),          // Very light for text on primary
+    primaryContainer = Color(0xFFD1D8DD),   // Softer blue-grey
+    onPrimaryContainer = Color(0xFF23272B),
 
-    secondary = Color(0xFFEF5350), // iOS red
-    onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFCDD2),
-    onSecondaryContainer = Color(0xFFB71C1C),
+    secondary = Color(0xFFB6A7D6),          // Lavender/muted purple
+    onSecondary = Color(0xFF23272B),
+    secondaryContainer = Color(0xFFECE7F6),
+    onSecondaryContainer = Color(0xFF3E3C47),
 
-    tertiary = Color(0xFF26A69A), // Teal accent
-    onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFB2DFDB),
-    onTertiaryContainer = Color(0xFF004D40),
+    tertiary = Color(0xFFA8C3B6),           // Muted mint green
+    onTertiary = Color(0xFF23272B),
+    tertiaryContainer = Color(0xFFE6F4F0),
+    onTertiaryContainer = Color(0xFF3E4B47),
 
-    error = Color(0xFFE53935), // Standard Material error red
-    onError = Color.White,
-    errorContainer = Color(0xFFFFCDD2),
-    onErrorContainer = Color(0xFFB71C1C),
+    error = Color(0xFFDB6B6B),              // Muted brick red
+    onError = Color(0xFFF4F6F8),
+    errorContainer = Color(0xFFF9DEDE),
+    onErrorContainer = Color(0xFF6E2727),
 
-    background = Color(0xFFFCFCFF), // Very light, clean background
-    onBackground = Color(0xFF1A1A1C), // Dark text for readability
+    background = Color(0xFFF5F6F8),         // Very light grey (not white!)
+    onBackground = Color(0xFF26282A),       // Almost black, but not fully
 
-    surface = Color(0xFFFFFFFF), // Pure white for main surfaces (like nav bar)
-    onSurface = Color(0xFF1A1A1C), // Dark text on surface
+    surface = Color(0xFFF8F9FA),            // Slightly lighter grey for cards/surfaces
+    onSurface = Color(0xFF23272B),
 
-    surfaceVariant = Color(0xFFF0F0F5), // Very light gray for cards (FlatCard)
-    onSurfaceVariant = Color(0xFF454549), // Medium gray text/icons on variants
+    surfaceVariant = Color(0xFFE6E8EB),     // Card backgrounds, etc.
+    onSurfaceVariant = Color(0xFF676A6D),   // Muted medium grey for text/icons
 
-    outline = Color(0xFFD0D0D5), // Light outlines
-    outlineVariant = Color(0xFFE0E0E5) // Very light outlines
+    outline = Color(0xFFD3D6D9),            // Subtle, soft border
+    outlineVariant = Color(0xFFCFD3D6)
 )
 
 // --- Global Theme Preference (Consider DataStore for persistence) ---
 object ThemePreferences {
-    var isDarkMode by mutableStateOf(false) // This will be used by the toggle
+    // Use only this value for global theme switching
+    var isDarkMode by mutableStateOf(true)
 }
 
-// --- Typography (Adjusted for a modern, clean look) ---
-// Consider adding a custom font if you have one.
-// For now, using system defaults with adjusted weights and sizes.
+// --- Typography ---
 val AppTypography = Typography(
     displayLarge = TextStyle(
-        fontFamily = FontFamily.Default, // Or your custom font
+        fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Bold,
         fontSize = 52.sp,
         lineHeight = 60.sp,
@@ -113,12 +110,12 @@ val AppTypography = Typography(
     ),
     headlineLarge = TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold, // Slightly less heavy than display for better balance
+        fontWeight = FontWeight.SemiBold,
         fontSize = 32.sp,
         lineHeight = 40.sp,
         letterSpacing = 0.sp
     ),
-    headlineMedium = TextStyle( // Used in FAQScreen Title
+    headlineMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.SemiBold,
         fontSize = 28.sp,
@@ -139,14 +136,14 @@ val AppTypography = Typography(
         lineHeight = 28.sp,
         letterSpacing = 0.sp
     ),
-    titleMedium = TextStyle( // Used in AboutScreen InfoSection title & FAQCard question
+    titleMedium = TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.SemiBold, // Good for section titles
-        fontSize = 18.sp,                // Slightly larger for clarity
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 18.sp,
         lineHeight = 24.sp,
         letterSpacing = 0.1.sp
     ),
-    titleSmall = TextStyle( // Could be used for smaller subheadings
+    titleSmall = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
         fontSize = 16.sp,
@@ -160,11 +157,11 @@ val AppTypography = Typography(
         lineHeight = 24.sp,
         letterSpacing = 0.5.sp
     ),
-    bodyMedium = TextStyle( // Used for general content text (AboutScreen InfoSection, FAQ answer)
+    bodyMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Normal,
         fontSize = 14.sp,
-        lineHeight = 22.sp, // Increased line height for readability
+        lineHeight = 22.sp,
         letterSpacing = 0.25.sp
     ),
     bodySmall = TextStyle(
@@ -184,7 +181,7 @@ val AppTypography = Typography(
     labelMedium = TextStyle(
         fontFamily = FontFamily.Default,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp, // Used in NavBar
+        fontSize = 12.sp,
         lineHeight = 16.sp,
         letterSpacing = 0.5.sp
     ),
@@ -199,17 +196,31 @@ val AppTypography = Typography(
 
 @Composable
 fun ShredItTheme(
-    // Allow external control for dark mode, defaulting to system setting
-    // and then overridden by ThemePreferences if the user has made a choice.
-    useDarkTheme: Boolean = isSystemInDarkTheme(),
+    // If you want system default, pass useDarkTheme = null.
+    // If you want to force a mode (e.g. for previews), provide true/false.
     content: @Composable () -> Unit
 ) {
-    val isEffectivelyDark = if (ThemePreferences.isDarkMode) true else useDarkTheme
-    val colors = if (isEffectivelyDark) DarkColorScheme else LightColorScheme
+    val isDark = ThemePreferences.isDarkMode
+    val colors =   if (isDark) DarkColorScheme else LightColorScheme
 
     MaterialTheme(
         colorScheme = colors,
-        typography = AppTypography, // Use the more detailed AppTypography
+        typography = AppTypography,
         content = content
     )
+}
+
+// Helpers for usage in Composables (not required, but convenient)
+object ShredderTheme {
+    val isDark: Boolean
+        @Composable
+        get() = ThemePreferences.isDarkMode
+
+    val colors: ColorScheme
+        @Composable
+        get() = MaterialTheme.colorScheme
+
+    val typography: Typography
+        @Composable
+        get() = MaterialTheme.typography
 }
