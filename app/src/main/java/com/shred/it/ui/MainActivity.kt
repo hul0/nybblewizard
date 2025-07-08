@@ -5,37 +5,57 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState // Import SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState // Import collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope // Import rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.net.toUri
+import androidx.lifecycle.viewmodel.compose.viewModel // Import viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.shred.it.ui.reusable.Navbar.CustomBottomNavBar// Assuming this is the path to your CustomBottomNavBar
-import com.shred.it.ui.reusable.Navbar.NavItem // Assuming this is the path to your NavItem data class
+import com.exyte.animatednavbar.AnimatedNavigationBar
+import com.shred.it.ui.reusable.SettingsDialog
+import com.shred.it.ui.reusable.TopNavBar
 import com.shred.it.ui.screens.AboutScreen
 import com.shred.it.ui.screens.FAQScreen
 import com.shred.it.ui.screens.FileShredderScreen
 import com.shred.it.ui.screens.SupportScreen
 import com.shred.it.ui.theme.ShredItTheme
+import com.shred.it.ui.theme.PaletteManager
+import com.shred.it.ui.viewmodel.FileShredderViewModel // Import FileShredderViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ShredItTheme {
+            ShredItTheme { // ShredItTheme already uses PaletteManager internally
                 MainAppScreen()
             }
         }
@@ -49,77 +69,320 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Support : Screen("support", "Support", Icons.Filled.SupportAgent)
 }
 
+@Preview
 @Composable
-fun MainAppScreen() {
+fun MainAppScreen(
+    fileShredderViewModel: FileShredderViewModel = viewModel() // Inject or get ViewModel
+) {
     val navController = rememberNavController()
     val context = LocalContext.current
     val screens = listOf(Screen.Home, Screen.About, Screen.FAQ, Screen.Support)
 
-    val navItems = screens.map { screen ->
-        NavItem(
-            icon = screen.icon,
-            name = screen.title,
-            route = screen.route
+    val settings by fileShredderViewModel.settings.collectAsState() // Collect settings state
+    val snackbarHostState = remember { SnackbarHostState() } // Create SnackbarHostState
+    val scope = rememberCoroutineScope() // Create CoroutineScope
+
+    // Remember the selected index for AnimatedNavigationBar
+    var selectedIndex by remember { mutableStateOf(0) }
+    // State to control the visibility of the settings dialog
+    var showSettingsDialog by remember { mutableStateOf(false) }
+
+    // Get current colors from MaterialTheme
+    val colors = MaterialTheme.colorScheme
+
+    // Dynamic colors based on selection from the current theme's palette
+    val screenSpecificPrimaryColors = listOf(
+        PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).primary, // For Home
+        PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).secondary, // For About (using secondary as an example)
+        PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).tertiary, // For FAQ (using tertiary as an example)
+        PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).error // For Support (using error as an example, choose appropriate)
+    )
+
+    val currentScreenPrimaryColor = screenSpecificPrimaryColors[selectedIndex]
+
+    val gradientColors = if (PaletteManager.isDarkMode) {
+        listOf(
+            colors.surface.copy(alpha = 0.8f),
+            colors.background.copy(alpha = 0.6f),
+            currentScreenPrimaryColor.copy(alpha = 0.5f)
+        )
+    } else {
+        listOf(
+            colors.primaryContainer.copy(alpha = 0.8f),
+            colors.secondaryContainer.copy(alpha = 0.6f),
+            currentScreenPrimaryColor.copy(alpha = 0.5f)
         )
     }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(
+                    colors = gradientColors,
+                    startY = 0f,
+                    endY = Float.POSITIVE_INFINITY
+                )
+            ),
+        // Add TopNavBar as the topBar of the Scaffold
+        topBar = {
+            TopNavBar(onSettingsClick = { showSettingsDialog = true })
+        },
         bottomBar = {
-            CustomBottomNavBar(navController = navController, items = navItems)
+            AnimatedNavigationBar(
+                selectedIndex = selectedIndex,
+                barColor = if (PaletteManager.isDarkMode) {
+                    colors.surfaceVariant.copy(alpha = 0.9f)
+                } else {
+                    colors.surfaceVariant.copy(alpha = 0.95f)
+                },
+                ballColor = currentScreenPrimaryColor,
+                modifier = Modifier.background(
+                    Brush.horizontalGradient(
+                        colors = listOf(
+                            colors.primary.copy(alpha = 0.3f),
+                            colors.secondary.copy(alpha = 0.3f),
+                            colors.tertiary.copy(alpha = 0.3f)
+                        )
+                    )
+                )
+            ) {
+                // Home Button
+                IconButton(
+                    onClick = {
+                        selectedIndex = 0
+                        navController.navigate(Screen.Home.route)
+                    },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(
+                            if (selectedIndex == 0) {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        screenSpecificPrimaryColors[0].copy(alpha = 0.3f),
+                                        screenSpecificPrimaryColors[0].copy(alpha = 0.1f)
+                                    )
+                                )
+                            } else {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Transparent
+                                    )
+                                )
+                            }
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.CleaningServices,
+                        contentDescription = "Shredder",
+                        tint = if (selectedIndex == 0) screenSpecificPrimaryColors[0] else colors.onSurface
+                    )
+                }
+
+                // About Button
+                IconButton(
+                    onClick = {
+                        selectedIndex = 1
+                        navController.navigate(Screen.About.route)
+                    },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(
+                            if (selectedIndex == 1) {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        screenSpecificPrimaryColors[1].copy(alpha = 0.3f),
+                                        screenSpecificPrimaryColors[1].copy(alpha = 0.1f)
+                                    )
+                                )
+                            } else {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Transparent
+                                    )
+                                )
+                            }
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Policy,
+                        contentDescription = "About",
+                        tint = if (selectedIndex == 1) screenSpecificPrimaryColors[1] else colors.onSurface
+                    )
+                }
+
+                // FAQ Button
+                IconButton(
+                    onClick = {
+                        selectedIndex = 2
+                        navController.navigate(Screen.FAQ.route)
+                    },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(
+                            if (selectedIndex == 2) {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        screenSpecificPrimaryColors[2].copy(alpha = 0.3f),
+                                        screenSpecificPrimaryColors[2].copy(alpha = 0.1f)
+                                    )
+                                )
+                            } else {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Transparent
+                                    )
+                                )
+                            }
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                        contentDescription = "FAQ",
+                        tint = if (selectedIndex == 2) screenSpecificPrimaryColors[2] else colors.onSurface
+                    )
+                }
+
+                // Support Button
+                IconButton(
+                    onClick = {
+                        selectedIndex = 3
+                        navController.navigate(Screen.Support.route)
+                    },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(
+                            if (selectedIndex == 3) {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        screenSpecificPrimaryColors[3].copy(alpha = 0.3f),
+                                        screenSpecificPrimaryColors[3].copy(alpha = 0.1f)
+                                    )
+                                )
+                            } else {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Transparent
+                                    )
+                                )
+                            }
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.SupportAgent,
+                        contentDescription = "Support",
+                        tint = if (selectedIndex == 3) screenSpecificPrimaryColors[3] else colors.onSurface
+                    )
+                }
+            }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Home.route,
+        Box(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-        ) {
-            composable(Screen.Home.route) {
-                FileShredderScreen(innerPadding)
-            }
-            composable(Screen.About.route) {
-                AboutScreen()
-            }
-            composable(Screen.FAQ.route) {
-                FAQScreen(innerPadding = innerPadding)
-            }
-            composable(Screen.Support.route) {
-                SupportScreen(
-                    onBackClick = { navController.navigateUp() },
-                    onRateApp = {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, "market://details?id=${context.packageName}".toUri())
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            val intent = Intent(Intent.ACTION_VIEW, "https://play.google.com/store/apps/details?id=${context.packageName}".toUri())
-                            context.startActivity(intent)
-                        }
-                    },
-                    onSupportTier = { /* handle support tier */ },
-                    onContactSupport = { contactType ->
-                        val intent = Intent(Intent.ACTION_SENDTO).apply {
-                            data = "mailto:nmrupam@proton.me".toUri()
-                            putExtra(Intent.EXTRA_SUBJECT, when (contactType) {
-                                "bug_report" -> "Bug Report - Shred It App"
-                                "feature_request" -> "Feature Request - Shred It App"
-                                "general_support" -> "General Support - Shred It App"
-                                "feedback" -> "Feedback - Shred It App"
-                                else -> "Support - Shred It App"
-                            })
-                            putExtra(Intent.EXTRA_TEXT, when (contactType) {
-                                "bug_report" -> "Please describe the bug you encountered:\n\n"
-                                "feature_request" -> "Please describe the feature you'd like to see:\n\n"
-                                "general_support" -> "How can we help you?\n\n"
-                                "feedback" -> "We'd love to hear your thoughts:\n\n"
-                                else -> ""
-                            })
-                        }
-                        context.startActivity(Intent.createChooser(intent, "Contact Support"))
-                    }
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            colors.background.copy(alpha = 0.8f),
+                            currentScreenPrimaryColor.copy(alpha = 0.1f),
+                            colors.surface.copy(alpha = 0.9f)
+                        )
+                    )
                 )
+        ) {
+            NavHost(
+                navController = navController,
+                startDestination = Screen.Home.route,
+                modifier = Modifier.fillMaxSize()
+            ) {
+                composable(Screen.Home.route) {
+                    FileShredderScreen(innerPadding, fileShredderViewModel) // Pass ViewModel here
+                }
+                composable(Screen.About.route) {
+                    AboutScreen()
+                }
+                composable(Screen.FAQ.route) {
+                    FAQScreen(innerPadding = innerPadding)
+                }
+                composable(Screen.Support.route) {
+                    SupportScreen(
+                        onBackClick = { navController.navigateUp() },
+                        onRateApp = {
+                            try {
+                                val intent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    "market://details?id=${context.packageName}".toUri()
+                                )
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                val intent = Intent(
+                                    Intent.ACTION_VIEW,
+                                    "https://play.google.com/store/apps/details?id=${context.packageName}".toUri()
+                                )
+                                context.startActivity(intent)
+                            }
+                        },
+                        onSupportTier = { /* handle support tier */ },
+                        onContactSupport = { contactType ->
+                            val intent = Intent(Intent.ACTION_SENDTO).apply {
+                                data = "mailto:nmrupam@proton.me".toUri()
+                                putExtra(
+                                    Intent.EXTRA_SUBJECT, when (contactType) {
+                                        "bug_report" -> "🐛 Bug Report - Shred It App"
+                                        "feature_request" -> "✨ Feature Request - Shred It App"
+                                        "general_support" -> "🆘 General Support - Shred It App"
+                                        "feedback" -> "💬 Feedback - Shred It App"
+                                        else -> "📧 Support - Shred It App"
+                                    }
+                                )
+                                putExtra(
+                                    Intent.EXTRA_TEXT, when (contactType) {
+                                        "bug_report" -> "🔍 Please describe the bug you encountered:\n\n" +
+                                                "📱 Device: \n" +
+                                                "🎯 Steps to reproduce:\n" +
+                                                "❌ Expected behavior:\n" +
+                                                "⚠️ Actual behavior:\n\n"
+
+                                        "feature_request" -> "💡 Please describe the feature you'd like to see:\n\n" +
+                                                "🎯 Feature description:\n" +
+                                                "📊 Why would this be useful:\n" +
+                                                "🔧 How should it work:\n\n"
+
+                                        "general_support" -> "🤝 How can we help you?\n\n" +
+                                                "❓ Your question:\n" +
+                                                "📋 Additional context:\n\n"
+
+                                        "feedback" -> "🌟 We'd love to hear your thoughts:\n\n" +
+                                                "👍 What you like:\n" +
+                                                "👎 What could be improved:\n" +
+                                                "💡 Suggestions:\n\n"
+
+                                        else -> "📝 How can we assist you?\n\n"
+                                    }
+                                )
+                            }
+                            context.startActivity(Intent.createChooser(intent, "Contact Support"))
+                        }
+                    )
+                }
             }
         }
-    }
-}
+
+
+        // Settings Dialog controlled by MainActivity
+        if (showSettingsDialog) {
+            SettingsDialog(
+                settings = settings,
+                onUpdateRounds = fileShredderViewModel::updateRounds,
+                onToggleRename = fileShredderViewModel::toggleRename,
+                onToggleVerify = fileShredderViewModel::toggleVerify,
+                snackbarHostState = snackbarHostState, // Pass the snackbarHostState
+                onDismiss = { showSettingsDialog = false }
+            )
+        }
+    }}

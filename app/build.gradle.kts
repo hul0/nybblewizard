@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.shred.it"
-        minSdk = 21 // Good choice for modern Android, reduces backward compatibility issues
+        minSdk = 24 // Good choice for modern Android, reduces backward compatibility issues
         targetSdk = 36
         versionCode = 3
         versionName = "1.2"
@@ -100,6 +100,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.runtime:runtime")
+    implementation("com.exyte:animated-navigation-bar:1.0.0")
 
     // ⭐⭐⭐ CRUCIAL FOR APK SIZE: REMOVE OLD MATERIAL DESIGN LIBRARY ⭐⭐⭐
     // This is the old View-based Material library. You are using Compose Material 3.
