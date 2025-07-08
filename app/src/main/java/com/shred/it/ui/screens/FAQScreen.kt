@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 // Assuming FlatCard is defined elsewhere in your project, e.g.:
-import com.shred.it.ui.screens.FlatCard // Make sure this path is correct
 
 data class FAQItem(
     val id: Int, // Add an ID for stable keys in LazyColumn

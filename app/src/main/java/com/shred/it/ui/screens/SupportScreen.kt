@@ -243,7 +243,7 @@ fun SupportScreen(
                                 Spacer(modifier = Modifier.height(16.dp))
 
                                 Text(
-                                    text = "Support the Creator",
+                                    text = "Support The Creator",
                                     style = MaterialTheme.typography.headlineLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -275,7 +275,7 @@ fun SupportScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Support Tiers",
+                            text = "Support Tiers (Coming soon!)",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -380,7 +380,7 @@ fun SupportScreen(
                         modifier = Modifier.padding(20.dp)
                     ) {
                         Text(
-                            text = "Development Stats",
+                            text = "App Development Stats",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
@@ -399,12 +399,12 @@ fun SupportScreen(
                             )
                             StatItem(
                                 icon = Icons.Default.Build,
-                                value = "5+",
+                                value = "15+",
                                 label = "Updates"
                             )
                             StatItem(
                                 icon = Icons.Default.Warning,
-                                value = "50+",
+                                value = "500+",
                                 label = "Bugs Fixed"
                             )
                         }
@@ -478,7 +478,7 @@ fun SupportScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Text(
-                            text = "Made with ❤️ by an indie developer",
+                            text = "Made with ❤️ by Rupam Ghosh",
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
                             textAlign = TextAlign.Center

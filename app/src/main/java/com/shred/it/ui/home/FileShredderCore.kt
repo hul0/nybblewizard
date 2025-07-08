@@ -3,15 +3,15 @@ package com.shred.it.core
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.database.Cursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.withContext
 import java.io.Closeable
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -19,23 +19,18 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.channels.FileChannel
 import java.security.SecureRandom
-import javax.crypto.Cipher
-import javax.crypto.KeyGenerator
-import javax.crypto.spec.IvParameterSpec
 import kotlin.math.min
-import kotlin.math.roundToLong
-import kotlin.system.measureTimeMillis
 
 enum class ShredderState {
-    IDLE, FILE_SELECTED, ENCRYPTING, OVERWRITING, OVERWRITE_COMPLETE,
+    IDLE, FILE_SELECTED, OVERWRITING, VERIFYING, OVERWRITE_COMPLETE,
     RENAMING, DELETING, COMPLETE, ERROR
 }
 
 enum class LogType {
-    INFO, WARNING, ERROR, SUCCESS, PROGRESS
+    INFO, WARNING, ERROR, SUCCESS, PROGRESS, SECURITY
 }
 
-enum class OverwritePattern(val description: String) {
+internal enum class OverwritePattern(val description: String) {
     RANDOM("Cryptographic random data"),
     ZEROS("All zeros"),
     ONES("All ones"),
@@ -49,9 +44,7 @@ data class FileInfo(
     val uri: Uri,
     val name: String,
     val size: Long,
-    val mimeType: String,
-    val extension: String,
-    val lastModified: Long
+    val mimeType: String
 )
 
 data class ShredderProgress(
@@ -59,24 +52,44 @@ data class ShredderProgress(
     val totalRounds: Int,
     val progress: Int,
     val bytesProcessed: Long,
-    val estimatedTimeRemaining: Long,
     val currentOperation: String
 )
 
 data class ShredderSettings(
-    val overwriteRounds: Int = 7,
-    val useRandomRename: Boolean = true,
-    val verifyOverwrites: Boolean = true,
-    val secureMemoryHandling: Boolean = true,
-    val clearClipboardAfter: Boolean = false,
-    val bufferSize: Int = 8192,
-    val useEnhancedVerification: Boolean = true
-)
+    val overwriteRounds: Int,
+    val useRandomRename: Boolean,
+    val verifyOverwrites: Boolean
+) {
+    companion object {
+        fun builder() = Builder()
+    }
+
+    class Builder {
+        private var overwriteRounds: Int = 5
+        private var useRandomRename: Boolean = true
+        private var verifyOverwrites: Boolean = true
+
+        fun rounds(rounds: Int) = apply {
+            this.overwriteRounds = rounds.coerceIn(1, 35)
+        }
+
+        fun randomRename(enabled: Boolean) = apply {
+            this.useRandomRename = enabled
+        }
+
+        fun verify(enabled: Boolean) = apply {
+            this.verifyOverwrites = enabled
+        }
+
+        fun build() = ShredderSettings(
+            overwriteRounds, useRandomRename, verifyOverwrites
+        )
+    }
+}
 
 data class LogEntry(
     val message: String,
-    val type: LogType,
-    val timestamp: Long = System.currentTimeMillis()
+    val type: LogType
 )
 
 class FileShredderCore {
@@ -89,13 +102,17 @@ class FileShredderCore {
     private val _logs = MutableStateFlow<List<LogEntry>>(emptyList())
     val logs: StateFlow<List<LogEntry>> = _logs
 
-    private var startTime: Long = 0
-    private var totalBytesProcessed: Long = 0
-    private var averageSpeed: Double = 0.0
+    private var primaryBuffer: ByteBuffer? = null
+    private var secondaryBuffer: ByteBuffer? = null
+    private var currentBufferSize: Int = 0
+    private val hardcodedBufferSize = 8192
 
     private fun addLog(message: String, type: LogType) {
         val currentLogs = _logs.value.toMutableList()
         currentLogs.add(LogEntry(message, type))
+        if (currentLogs.size > 1000) {
+            currentLogs.removeAt(0)
+        }
         _logs.value = currentLogs
     }
 
@@ -113,11 +130,8 @@ class FileShredderCore {
 
             val fileName = extractFileName(context, uri)
             val fileSize = getFileSize(context, uri)
-            val mimeType = getMimeType(context, uri)
-            val extension = getFileExtension(fileName)
-            val lastModified = getLastModified(context, uri)
 
-            validateFile(context, uri, fileSize, settings)?.let { error ->
+            validateFile(context, uri, fileSize)?.let { error ->
                 addLog(error, LogType.ERROR)
                 updateState(ShredderState.ERROR)
                 return null
@@ -125,55 +139,56 @@ class FileShredderCore {
 
             grantPersistentAccess(context, uri)
 
-            addLog("File selected: $fileName (${formatFileSize(fileSize)})", LogType.SUCCESS)
-            addLog("File type: $mimeType", LogType.INFO)
-            addLog("File validation: PASSED", LogType.SUCCESS)
+            addLog("File selected: $fileName", LogType.SUCCESS)
 
-            FileInfo(uri, fileName, fileSize, mimeType, extension, lastModified)
+            FileInfo(
+                uri = uri,
+                name = fileName,
+                size = fileSize,
+                mimeType = getMimeType(context, uri)
+            )
 
         } catch (e: SecurityException) {
             addLog("Permission denied: Cannot access file", LogType.ERROR)
-            addLog("Action required: Grant file access permissions", LogType.INFO)
             updateState(ShredderState.ERROR)
             null
         } catch (e: Exception) {
-            addLog("Error selecting file: ${e.message}", LogType.ERROR)
+            addLog("Error selecting file", LogType.ERROR)
             updateState(ShredderState.ERROR)
             null
         }
     }
 
     suspend fun shredFile(context: Context, fileInfo: FileInfo, settings: ShredderSettings): Boolean {
-        return try {
-            if (!encryptFileData(context, fileInfo.uri, settings)) {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (!performSecureOverwriting(context, fileInfo, settings)) {
+                    updateState(ShredderState.ERROR)
+                    return@withContext false
+                }
+
+                updateState(ShredderState.RENAMING)
+                val renamedUri = renameFileToJunk(context, fileInfo.uri, settings)
+
+                updateState(ShredderState.DELETING)
+                val deleted = deleteFile(context, renamedUri ?: fileInfo.uri)
+
+                if (deleted) {
+                    updateState(ShredderState.COMPLETE)
+                    addLog("File securely shredded and deleted", LogType.SUCCESS)
+                    cleanupResources()
+                    true
+                } else {
+                    updateState(ShredderState.ERROR)
+                    false
+                }
+
+            } catch (e: Exception) {
+                addLog("Shredding failed", LogType.ERROR)
                 updateState(ShredderState.ERROR)
-                return false
-            }
-
-            if (!performSecureOverwriting(context, fileInfo.uri, settings)) {
-                updateState(ShredderState.ERROR)
-                return false
-            }
-
-            updateState(ShredderState.RENAMING)
-            val renamedUri = renameFileToJunk(context, fileInfo.uri, settings)
-
-            updateState(ShredderState.DELETING)
-            val deleted = deleteFile(context, renamedUri ?: fileInfo.uri, settings)
-
-            if (deleted) {
-                updateState(ShredderState.COMPLETE)
-                addLog("File securely shredded.", LogType.SUCCESS)
-                true
-            } else {
-                updateState(ShredderState.ERROR)
+                cleanupResources()
                 false
             }
-
-        } catch (e: Exception) {
-            addLog("Shredding failed: ${e.message}", LogType.ERROR)
-            updateState(ShredderState.ERROR)
-            false
         }
     }
 
@@ -184,21 +199,16 @@ class FileShredderCore {
     fun resetState() {
         _state.value = ShredderState.IDLE
         _progress.value = null
+        cleanupResources()
     }
 
-    private fun validateFile(context: Context, uri: Uri, fileSize: Long, settings: ShredderSettings): String? {
+    private fun validateFile(context: Context, uri: Uri, fileSize: Long): String? {
         if (fileSize <= 0) {
             return "Invalid file: Empty or unreadable"
         }
-
         if (!isFileWritable(context, uri)) {
             return "File is not writable or accessible"
         }
-
-        if (settings.secureMemoryHandling && fileSize > Runtime.getRuntime().maxMemory() / 4) {
-            addLog("Warning: Large file detected, using streaming mode", LogType.WARNING)
-        }
-
         return null
     }
 
@@ -206,13 +216,13 @@ class FileShredderCore {
         try {
             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-            addLog("Persistent file access permissions granted", LogType.SUCCESS)
-        } catch (e: SecurityException) {
-            addLog("Warning: Using temporary file access (no persistent permissions)", LogType.WARNING)
+            addLog("Persistent file access granted", LogType.INFO)
+        } catch (e: Exception) {
+            addLog("Cannot grant persistent permissions. Shredding may fail.", LogType.WARNING)
         }
     }
 
-    private suspend fun encryptFileData(context: Context, uri: Uri, settings: ShredderSettings): Boolean {
+    private suspend fun performSecureOverwriting(context: Context, fileInfo: FileInfo, settings: ShredderSettings): Boolean {
         var pfd: ParcelFileDescriptor? = null
         var inputStream: FileInputStream? = null
         var outputStream: FileOutputStream? = null
@@ -220,127 +230,21 @@ class FileShredderCore {
         var outputChannel: FileChannel? = null
 
         return try {
-            updateState(ShredderState.ENCRYPTING)
-            startOperation()
-            addLog("Initiating pre-shred encryption...", LogType.INFO)
+            updateState(ShredderState.OVERWRITING)
+            addLog("Starting overwrite process", LogType.INFO)
 
-            val keyGenerator = KeyGenerator.getInstance("AES")
-            keyGenerator.init(256, SecureRandom())
-            val secretKey = keyGenerator.generateKey()
-
-            val random = SecureRandom()
-            val iv = ByteArray(16)
-            random.nextBytes(iv)
-
-            addLog("Generated 256-bit AES encryption key (ephemeral)", LogType.SUCCESS)
-            addLog("Generated random initialization vector", LogType.INFO)
-
-            val cipher = Cipher.getInstance("AES/CBC/PKCS5Padding")
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, IvParameterSpec(iv))
-
-            pfd = context.contentResolver.openFileDescriptor(uri, "rw")
-                ?: throw IOException("Could not open file for encryption")
+            pfd = context.contentResolver.openFileDescriptor(fileInfo.uri, "rw")
+                ?: throw IOException("Could not acquire file descriptor")
 
             inputStream = FileInputStream(pfd.fileDescriptor)
             outputStream = FileOutputStream(pfd.fileDescriptor)
             inputChannel = inputStream.channel
             outputChannel = outputStream.channel
 
-            val fileSize = inputChannel.size()
-            if (fileSize <= 0) {
-                throw IOException("File is empty or size cannot be determined")
-            }
-
-            addLog("Encrypting file data (${formatFileSize(fileSize)})...", LogType.INFO)
-
-            val buffer = ByteBuffer.allocate(settings.bufferSize)
-            var totalEncrypted: Long = 0
-            val encryptedChunks = mutableListOf<ByteArray>()
-
-            val encryptionTime = measureTimeMillis {
-                inputChannel.position(0)
-                while (inputChannel.read(buffer) > 0) {
-                    buffer.flip()
-                    val data = ByteArray(buffer.remaining())
-                    buffer.get(data)
-                    buffer.clear()
-
-                    val encryptedChunk = cipher.update(data)
-                    encryptedChunk?.let { chunk ->
-                        if (chunk.isNotEmpty()) {
-                            encryptedChunks.add(chunk)
-                        }
-                    }
-
-                    totalEncrypted += data.size
-                    updateProgress(totalEncrypted)
-
-                    if (settings.secureMemoryHandling && totalEncrypted % (1024 * 1024) == 0L) {
-                        System.gc()
-                        delay(1)
-                    }
-                }
-
-                val finalBlock = cipher.doFinal()
-                if (finalBlock != null && finalBlock.isNotEmpty()) {
-                    encryptedChunks.add(finalBlock)
-                }
-            }
-
-            outputChannel.position(0)
-            var totalWritten = 0L
-
-            for (chunk in encryptedChunks) {
-                val writeBuffer = ByteBuffer.wrap(chunk)
-                while (writeBuffer.hasRemaining()) {
-                    outputChannel.write(writeBuffer)
-                }
-                totalWritten += chunk.size
-            }
-
-            outputChannel.truncate(totalWritten)
-            outputChannel.force(true)
-
-            addLog("File encryption completed in ${encryptionTime}ms", LogType.SUCCESS)
-            addLog("Encryption key destroyed (never stored)", LogType.SUCCESS)
-
-            true
-
-        } catch (e: Exception) {
-            addLog("Encryption failed: ${e.message}", LogType.ERROR)
-            false
-        } finally {
-            closeResources(inputChannel, outputChannel, inputStream, outputStream, pfd)
-            if (settings.secureMemoryHandling) {
-                System.gc()
-            }
-        }
-    }
-
-    private suspend fun performSecureOverwriting(context: Context, uri: Uri, settings: ShredderSettings): Boolean {
-        var pfd: ParcelFileDescriptor? = null
-        var outputStream: FileOutputStream? = null
-        var outputChannel: FileChannel? = null
-
-        return try {
-            updateState(ShredderState.OVERWRITING)
-            startOperation()
-            addLog("Preparing secure overwriting process...", LogType.INFO)
-
-            pfd = context.contentResolver.openFileDescriptor(uri, "rw")
-                ?: throw IOException("Could not acquire file descriptor")
-
-            outputStream = FileOutputStream(pfd.fileDescriptor)
-            outputChannel = outputStream.channel
-
             val fileSize = outputChannel.size()
             if (fileSize <= 0) throw IOException("Empty file or unknown size")
 
-            addLog("File size: ${formatFileSize(fileSize)}", LogType.INFO)
-            addLog("Initializing secure overwrite sequence...", LogType.INFO)
-
-            val random = SecureRandom()
-            val buffer = ByteBuffer.allocate(settings.bufferSize)
+            initializeBuffers()
             val patterns = generateOverwritePatterns(settings.overwriteRounds)
 
             for (round in 1..settings.overwriteRounds) {
@@ -349,26 +253,32 @@ class FileShredderCore {
                     round = round,
                     totalRounds = settings.overwriteRounds,
                     fileSize = fileSize,
-                    pattern = patterns[round - 1],
-                    buffer = buffer,
-                    random = random,
-                    settings = settings
+                    pattern = patterns[round - 1]
                 )
+                outputChannel.force(true)
             }
 
-            outputChannel.force(true)
+            if (settings.verifyOverwrites) {
+                updateState(ShredderState.VERIFYING)
+                val lastPattern = patterns.last()
+                val verificationResult = verifyOverwrite(inputChannel, fileSize, lastPattern)
+                if (verificationResult) {
+                    addLog("Overwrite verification PASSED", LogType.SUCCESS)
+                } else {
+                    addLog("Overwrite verification FAILED. Continuing shredding.", LogType.WARNING)
+                    // Do not return false here, continue shredding even if verification fails
+                }
+            }
+
             updateState(ShredderState.OVERWRITE_COMPLETE)
-            addLog("${settings.overwriteRounds} overwrite rounds completed.", LogType.SUCCESS)
+            addLog("Overwriting completed", LogType.SUCCESS)
             true
 
         } catch (e: Exception) {
-            addLog("Overwriting failed: ${e.message}", LogType.ERROR)
+            addLog("Overwriting failed", LogType.ERROR)
             false
         } finally {
-            closeResources(outputChannel, outputStream, pfd)
-            if (settings.secureMemoryHandling) {
-                System.gc()
-            }
+            closeResources(inputChannel, outputChannel, inputStream, outputStream, pfd)
         }
     }
 
@@ -377,35 +287,27 @@ class FileShredderCore {
         round: Int,
         totalRounds: Int,
         fileSize: Long,
-        pattern: OverwritePattern,
-        buffer: ByteBuffer,
-        random: SecureRandom,
-        settings: ShredderSettings
+        pattern: OverwritePattern
     ) {
-        addLog("Starting round $round/$totalRounds: ${pattern.description}", LogType.INFO)
+        addLog("Round $round/$totalRounds: ${pattern.description}", LogType.INFO)
 
         var totalWritten = 0L
         outputChannel.position(0)
+        val random = SecureRandom()
 
         while (totalWritten < fileSize) {
+            val buffer = getNextBuffer()
             buffer.clear()
+
             val remaining = fileSize - totalWritten
             val bytesToWrite = min(buffer.capacity().toLong(), remaining).toInt()
 
             when (pattern) {
-                OverwritePattern.RANDOM -> random.nextBytes(buffer.array())
-                OverwritePattern.ZEROS -> buffer.array().fill(0)
+                OverwritePattern.RANDOM, OverwritePattern.RANDOM_FLUSH -> random.nextBytes(buffer.array())
+                OverwritePattern.ZEROS, OverwritePattern.SECURE_FINAL -> buffer.array().fill(0)
                 OverwritePattern.ONES -> buffer.array().fill(-1)
                 OverwritePattern.ALTERNATING_1 -> fillAlternating(buffer.array(), 0xAA.toByte(), 0x55.toByte())
                 OverwritePattern.ALTERNATING_2 -> fillAlternating(buffer.array(), 0x55.toByte(), 0xAA.toByte())
-                OverwritePattern.RANDOM_FLUSH -> {
-                    random.nextBytes(buffer.array())
-                    outputChannel.force(true)
-                }
-                OverwritePattern.SECURE_FINAL -> {
-                    buffer.array().fill(0)
-                    outputChannel.force(true)
-                }
             }
 
             buffer.limit(bytesToWrite)
@@ -413,7 +315,6 @@ class FileShredderCore {
             totalWritten += bytesToWrite
 
             val progress = ((totalWritten.toDouble() / fileSize) * 100).toInt()
-            val timeRemaining = estimateTimeRemaining(fileSize, totalWritten)
 
             updateProgress(
                 ShredderProgress(
@@ -421,78 +322,122 @@ class FileShredderCore {
                     totalRounds = totalRounds,
                     progress = progress,
                     bytesProcessed = totalWritten,
-                    estimatedTimeRemaining = timeRemaining,
-                    currentOperation = "Overwriting - ${pattern.description}"
+                    currentOperation = "Overwriting"
                 )
             )
+        }
+    }
 
-            if (settings.secureMemoryHandling && totalWritten % (1024 * 1024) == 0L) {
-                delay(1)
+    private suspend fun verifyOverwrite(inputChannel: FileChannel, fileSize: Long, finalPattern: OverwritePattern): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                addLog("Verifying overwrite", LogType.INFO)
+                val sampleRate = 0.1f
+                val sampleSize = (fileSize * sampleRate).toLong()
+                val random = SecureRandom()
+                val buffer = ByteBuffer.allocate(4096)
+                var samplesChecked = 0
+                var samplesPassed = 0
+
+                for (i in 0 until min(100, sampleSize / 4096)) {
+                    val offset = if (fileSize > 4096) random.nextLong() % (fileSize - 4096) else 0
+                    inputChannel.position(offset)
+                    buffer.clear()
+                    val bytesRead = inputChannel.read(buffer)
+
+                    if (bytesRead > 0) {
+                        buffer.flip()
+                        val data = ByteArray(bytesRead)
+                        buffer.get(data)
+                        samplesChecked++
+
+                        val passed = when (finalPattern) {
+                            OverwritePattern.ZEROS, OverwritePattern.SECURE_FINAL -> data.all { it == 0.toByte() }
+                            OverwritePattern.ONES -> data.all { it == (-1).toByte() }
+                            OverwritePattern.ALTERNATING_1 -> data.indices.all { data[it] == if (it % 2 == 0) 0xAA.toByte() else 0x55.toByte() }
+                            OverwritePattern.ALTERNATING_2 -> data.indices.all { data[it] == if (it % 2 == 0) 0x55.toByte() else 0xAA.toByte() }
+                            OverwritePattern.RANDOM, OverwritePattern.RANDOM_FLUSH -> {
+                                val firstByte = data.first()
+                                !data.all { it == firstByte }
+                            }
+                        }
+                        if (passed) samplesPassed++
+                    }
+                }
+
+                val verificationPercentage = if (samplesChecked > 0) {
+                    (samplesPassed.toDouble() / samplesChecked * 100).toInt()
+                } else {
+                    100
+                }
+
+                addLog("Verification result: $verificationPercentage% samples matched", LogType.INFO)
+                verificationPercentage >= 90
+
+            } catch (e: Exception) {
+                addLog("Verification failed", LogType.ERROR)
+                false
             }
         }
+    }
 
-        addLog("Round $round completed (${formatFileSize(totalWritten)})", LogType.SUCCESS)
+    private fun initializeBuffers() {
+        if (primaryBuffer == null) {
+            primaryBuffer = ByteBuffer.allocate(hardcodedBufferSize)
+            secondaryBuffer = ByteBuffer.allocate(hardcodedBufferSize)
+            currentBufferSize = hardcodedBufferSize
+            addLog("Buffers initialized", LogType.INFO)
+        }
+    }
+
+    private var usePrimary = true
+    private fun getNextBuffer(): ByteBuffer {
+        usePrimary = !usePrimary
+        return if (!usePrimary) primaryBuffer!! else secondaryBuffer!!
     }
 
     private fun renameFileToJunk(context: Context, uri: Uri, settings: ShredderSettings): Uri? {
         return try {
             if (!settings.useRandomRename) {
-                addLog("Random rename disabled in settings.", LogType.INFO)
                 return uri
             }
-
-            addLog("Generating secure random filename...", LogType.INFO)
             val junkName = generateSecureRandomFilename()
-            addLog("Generated filename: $junkName", LogType.INFO)
-
             val newUri = DocumentsContract.renameDocument(context.contentResolver, uri, junkName)
-
             if (newUri != null) {
-                addLog("File renamed successfully.", LogType.SUCCESS)
-                addLog("Original filename obfuscated.", LogType.SUCCESS)
+                addLog("File renamed", LogType.SUCCESS)
                 newUri
             } else {
-                addLog("Rename failed (OS restriction).", LogType.WARNING)
-                addLog("Original filename retained.", LogType.INFO)
+                addLog("Rename failed (provider limitation)", LogType.WARNING)
                 uri
             }
         } catch (e: Exception) {
-            addLog("Rename failed: ${e.message}", LogType.ERROR)
+            addLog("Rename failed", LogType.ERROR)
             uri
         }
     }
 
-    private fun deleteFile(context: Context, uri: Uri, settings: ShredderSettings): Boolean {
+    private fun deleteFile(context: Context, uri: Uri): Boolean {
         return try {
-            addLog("Initiating secure deletion...", LogType.INFO)
-
+            addLog("Deleting file", LogType.INFO)
             val deleted = DocumentsContract.deleteDocument(context.contentResolver, uri)
-
             if (deleted) {
-                addLog("File deleted from filesystem.", LogType.SUCCESS)
-                addLog("Data securely destroyed.", LogType.SUCCESS)
-                addLog("Recovery status: Cryptographically impossible.", LogType.SUCCESS)
-
-                if (settings.clearClipboardAfter) {
-                    clearClipboard(context)
-                    addLog("Clipboard cleared.", LogType.SUCCESS)
-                }
+                addLog("File deleted", LogType.SUCCESS)
             } else {
-                addLog("Automatic deletion failed.", LogType.WARNING)
-                addLog("Action required: Manual deletion may be necessary.", LogType.INFO)
+                addLog("Deletion failed. Manual deletion may be necessary.", LogType.WARNING)
             }
-
-            if (settings.secureMemoryHandling) {
-                System.gc()
-                addLog("Memory sanitized.", LogType.SUCCESS)
-            }
-
             deleted
-
         } catch (e: Exception) {
-            addLog("Deletion error: ${e.message}", LogType.ERROR)
+            addLog("Deletion error", LogType.ERROR)
             false
         }
+    }
+
+    private fun cleanupResources() {
+        primaryBuffer = null
+        secondaryBuffer = null
+        currentBufferSize = 0
+        System.gc()
+        addLog("Resources cleaned up", LogType.SECURITY)
     }
 
     private fun fillAlternating(array: ByteArray, byte1: Byte, byte2: Byte) {
@@ -504,39 +449,20 @@ class FileShredderCore {
     private fun generateOverwritePatterns(rounds: Int): List<OverwritePattern> {
         return buildList {
             if (rounds > 0) {
-                repeat(rounds - 1) { index ->
-                    add(
-                        when (index % 5) {
-                            0 -> OverwritePattern.RANDOM
-                            1 -> OverwritePattern.ALTERNATING_1
-                            2 -> OverwritePattern.ONES
-                            3 -> OverwritePattern.ALTERNATING_2
-                            else -> OverwritePattern.RANDOM_FLUSH
-                        }
-                    )
+                if (rounds > 1) {
+                    repeat(rounds - 1) { index ->
+                        add(
+                            when (index % 4) {
+                                0 -> OverwritePattern.RANDOM
+                                1 -> OverwritePattern.ALTERNATING_1
+                                2 -> OverwritePattern.ONES
+                                else -> OverwritePattern.ALTERNATING_2
+                            }
+                        )
+                    }
                 }
-                add(OverwritePattern.SECURE_FINAL)
+                add(OverwritePattern.RANDOM_FLUSH)
             }
-        }
-    }
-
-    private fun estimateTimeRemaining(totalSize: Long, processedSize: Long): Long {
-        if (processedSize == 0L || averageSpeed == 0.0) return -1
-        val remainingBytes = totalSize - processedSize
-        return (remainingBytes / (averageSpeed / 7)).roundToLong()
-    }
-
-    private fun startOperation() {
-        startTime = System.currentTimeMillis()
-        totalBytesProcessed = 0
-        averageSpeed = 0.0
-    }
-
-    private fun updateProgress(processed: Long) {
-        totalBytesProcessed = processed
-        val elapsedSeconds = (System.currentTimeMillis() - startTime) / 1000.0
-        if (elapsedSeconds > 0) {
-            averageSpeed = processed.toDouble() / elapsedSeconds
         }
     }
 
@@ -544,79 +470,38 @@ class FileShredderCore {
         val random = SecureRandom()
         val length = random.nextInt(8) + 12
         val chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-
         return buildString {
             repeat(length) {
                 append(chars[random.nextInt(chars.length)])
             }
-            append(".txt")
+            append(".tmp")
         }
-    }
-
-    private fun clearClipboard(context: Context) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? android.content.ClipboardManager
-        clipboard?.setPrimaryClip(android.content.ClipData.newPlainText("", ""))
     }
 
     private fun extractFileName(context: Context, uri: Uri): String {
-        var cursor: Cursor? = null
-        return try {
-            cursor = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
-            if (cursor?.moveToFirst() == true) {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
                 val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                if (index != -1) cursor.getString(index) else "Unknown"
-            } else {
-                "Unknown"
+                if (index != -1) return cursor.getString(index) ?: "Unknown"
             }
-        } catch (e: Exception) {
-            "Unknown"
-        } finally {
-            cursor?.close()
         }
+        return "Unknown"
     }
 
     private fun getFileSize(context: Context, uri: Uri): Long {
-        var cursor: Cursor? = null
-        return try {
-            cursor = context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)
-            if (cursor?.moveToFirst() == true) {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
                 val index = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (index != -1) cursor.getLong(index) else -1L
-            } else {
-                -1L
+                if (index != -1) return cursor.getLong(index)
             }
-        } catch (e: Exception) {
-            -1L
-        } finally {
-            cursor?.close()
         }
+        return -1L
     }
 
     private fun getMimeType(context: Context, uri: Uri): String {
         return context.contentResolver.getType(uri)
-            ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(getFileExtension(uri.toString()))
+            ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(uri.toString().substringAfterLast('.', ""))
             ?: "application/octet-stream"
-    }
-
-    private fun getFileExtension(fileName: String): String {
-        return fileName.substringAfterLast('.', "")
-    }
-
-    private fun getLastModified(context: Context, uri: Uri): Long {
-        var cursor: Cursor? = null
-        return try {
-            cursor = context.contentResolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_LAST_MODIFIED), null, null, null)
-            if (cursor?.moveToFirst() == true) {
-                val index = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
-                if (index != -1) cursor.getLong(index) else System.currentTimeMillis()
-            } else {
-                System.currentTimeMillis()
-            }
-        } catch (e: Exception) {
-            System.currentTimeMillis()
-        } finally {
-            cursor?.close()
-        }
     }
 
     private fun isFileWritable(context: Context, uri: Uri): Boolean {
@@ -628,11 +513,11 @@ class FileShredderCore {
     }
 
     private fun closeResources(vararg resources: Closeable?) {
-        resources.forEach { resource ->
+        resources.forEach {
             try {
-                resource?.close()
-            } catch (e: Exception) {
-                // Log the exception if necessary, but don't re-throw
+                it?.close()
+            } catch (e: IOException) {
+                // Ignored
             }
         }
     }
@@ -640,7 +525,6 @@ class FileShredderCore {
     @SuppressLint("DefaultLocale")
     fun formatFileSize(bytes: Long): String = when {
         bytes < 0 -> "N/A"
-        bytes == 0L -> "0 B"
         bytes < 1024 -> "$bytes B"
         bytes < 1024 * 1024 -> String.format("%.2f KB", bytes / 1024.0)
         bytes < 1024 * 1024 * 1024 -> String.format("%.2f MB", bytes / (1024.0 * 1024.0))

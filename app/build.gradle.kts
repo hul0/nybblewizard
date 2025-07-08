@@ -1,3 +1,5 @@
+import com.android.build.api.dsl.Packaging
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -58,7 +60,9 @@ android {
         // viewBinding = true // Correctly commented out if not using ViewBinding.
     }
 
-    packagingOptions {
+    // This exclusion can sometimes help, but test carefully as it might affect some libraries.
+    // excludes += "kotlin/coroutines/coroutines.kotlin_builtins"
+    fun Packaging.() {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/LICENSE.md"
@@ -126,9 +130,7 @@ dependencies {
     // REMOVE (if few icons used): implementation("androidx.compose.material:material-icons-extended")
 
 
-    // DataStore - ⭐ UPDATE TO LATEST STABLE ⭐
-    implementation("androidx.datastore:datastore-preferences:1.1.1") // Latest stable as of current knowledge
-
+    
     // Activity & Animation - ⭐ UPDATE TO LATEST STABLE ⭐
     implementation("androidx.activity:activity-compose:1.9.0") // Latest stable as of current knowledge
     implementation("androidx.compose.animation:animation")
