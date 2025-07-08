@@ -73,14 +73,6 @@ data class ShredderSettings(
             this.overwriteRounds = rounds.coerceIn(1, 35)
         }
 
-        fun randomRename(enabled: Boolean) = apply {
-            this.useRandomRename = enabled
-        }
-
-        fun verify(enabled: Boolean) = apply {
-            this.verifyOverwrites = enabled
-        }
-
         fun build() = ShredderSettings(
             overwriteRounds, useRandomRename, verifyOverwrites
         )
@@ -437,7 +429,7 @@ class FileShredderCore {
         secondaryBuffer = null
         currentBufferSize = 0
         System.gc()
-        addLog("Resources cleaned up", LogType.SECURITY)
+
     }
 
     private fun fillAlternating(array: ByteArray, byte1: Byte, byte2: Byte) {

@@ -8,27 +8,22 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.Policy
+import androidx.compose.material.icons.filled.SupportAgent
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.shred.it.ui.reusable.Navbar.CustomBottomNavBar// Assuming this is the path to your CustomBottomNavBar
+import com.shred.it.ui.reusable.Navbar.NavItem // Assuming this is the path to your NavItem data class
 import com.shred.it.ui.screens.AboutScreen
 import com.shred.it.ui.screens.FAQScreen
 import com.shred.it.ui.screens.FileShredderScreen
@@ -47,12 +42,11 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Sealed class for screen routes and metadata
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
-    object Home : Screen("home", "Shredder", Icons.Default.Delete)
-    object About : Screen("about", "About", Icons.Default.Info)
-    object FAQ : Screen("faq", "FAQ", Icons.AutoMirrored.Filled.List)
-    object Support : Screen("support", "Support", Icons.Default.Favorite)
+    object Home : Screen("home", "Shredder", Icons.Filled.CleaningServices)
+    object About : Screen("about", "About", Icons.Filled.Policy)
+    object FAQ : Screen("faq", "FAQ", Icons.AutoMirrored.Filled.HelpOutline)
+    object Support : Screen("support", "Support", Icons.Filled.SupportAgent)
 }
 
 @Composable
@@ -61,39 +55,18 @@ fun MainAppScreen() {
     val context = LocalContext.current
     val screens = listOf(Screen.Home, Screen.About, Screen.FAQ, Screen.Support)
 
+    val navItems = screens.map { screen ->
+        NavItem(
+            icon = screen.icon,
+            name = screen.title,
+            route = screen.route
+        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-
-                screens.forEach { screen ->
-                    val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
-                    NavigationBarItem(
-                        icon = {
-                            Icon(screen.icon, contentDescription = screen.title)
-                        },
-                        label = {
-                            Text(screen.title)
-                        },
-                        selected = selected,
-                        onClick = {
-                            if (navController.currentDestination?.route != screen.route) {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            }
-                        }
-                        // By removing NavigationBarItemDefaults.colors, the item will use
-                        // the default colors provided by the MaterialTheme for selected and unselected states.
-                    )
-                }
-            }
+            CustomBottomNavBar(navController = navController, items = navItems)
         }
     ) { innerPadding ->
         NavHost(
@@ -104,13 +77,13 @@ fun MainAppScreen() {
                 .fillMaxSize()
         ) {
             composable(Screen.Home.route) {
-                FileShredderScreen()
+                FileShredderScreen(innerPadding)
             }
             composable(Screen.About.route) {
                 AboutScreen()
             }
             composable(Screen.FAQ.route) {
-                FAQScreen()
+                FAQScreen(innerPadding = innerPadding)
             }
             composable(Screen.Support.route) {
                 SupportScreen(

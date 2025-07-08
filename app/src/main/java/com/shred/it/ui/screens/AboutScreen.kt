@@ -1,22 +1,45 @@
 package com.shred.it.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -98,6 +121,39 @@ val infoList = listOf(
 
 @Composable
 fun AboutScreen() {
+    // V- Get LocalUriHandler instance
+    val uriHandler = LocalUriHandler.current
+
+    // V- Prepare the annotated string for the link
+    val annotatedLinkString = buildAnnotatedString {
+        val fullText = "Check our Terms and Privacy Policy on our website : impom.github.io/shreditapp"
+        val linkText = "impom.github.io/shreditapp"
+        val urlToOpen = "https://impom.github.io/shreditapp" // Ensure it has https://
+
+        val startIndex = fullText.indexOf(linkText)
+        if (startIndex == -1) { // Fallback if linkText is not found
+            append(fullText)
+            return@buildAnnotatedString
+        }
+        val endIndex = startIndex + linkText.length
+
+        append(fullText.substring(0, startIndex)) // Text before the link
+
+        // V- Push annotation for the link part
+        pushStringAnnotation(tag = "URL", annotation = urlToOpen)
+        withStyle(
+            style = SpanStyle(
+                color = MaterialTheme.colorScheme.primary, // Or your preferred link color
+                textDecoration = TextDecoration.Underline
+            )
+        ) {
+            append(fullText.substring(startIndex, endIndex)) // The link text itself
+        }
+        pop() // Pop the annotation
+
+        append(fullText.substring(endIndex)) // Text after the link
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -106,13 +162,13 @@ fun AboutScreen() {
             .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Removed Spacer at the top for a more direct look,
-        // and animated visibility/alpha modifiers.
-
-        Text(
-            text = "🔒",
-            fontSize = 50.sp,
-            modifier = Modifier.padding(bottom = 16.dp)
+        Icon(
+            imageVector = Icons.Filled.Security,
+            contentDescription = "Security icon",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .size(50.dp)
+                .padding(bottom = 16.dp)
         )
 
         Text(
@@ -122,54 +178,89 @@ fun AboutScreen() {
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
-        Text(
-            text = "Check our Terms and Privacy Policy on our website : impom.github.io/shreditapp",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 24.dp)
+        // V- Replace Text with ClickableText
+        ClickableText(
+            text = annotatedLinkString,
+            style = MaterialTheme.typography.titleMedium.copy( // Apply base style
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            modifier = Modifier.padding(bottom = 24.dp),
+            onClick = { offset ->
+                // V- Handle click on the annotated part of the text
+                annotatedLinkString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                    .firstOrNull()?.let { annotation ->
+                        uriHandler.openUri(annotation.item) // Open the URL
+                    }
+            }
         )
 
         // Dynamically generate InfoSections from the infoList
         infoList.forEach { (title, content) ->
-            // Replaced AnimatedAboutCard with a direct Card usage
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp), // Reduced vertical padding to match original intent
+                    .padding(vertical = 4.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant, // Use surfaceVariant for card background
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             ) {
                 InfoSection(title = title, content = content)
             }
-            Spacer(modifier = Modifier.height(8.dp)) // Standard small spacer between cards
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
-        Spacer(modifier = Modifier.height(16.dp)) // Standard spacer at the bottom
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-// InfoSection remains mostly the same, now directly used within a Card
+// InfoSection now manages its own expanded state and includes the dropdown icon
 @Composable
 fun InfoSection(title: String, content: String) {
+    var expanded by remember { mutableStateOf(false) } // State for each info section
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 16.dp, horizontal = 20.dp) // Original padding maintained
+            .clickable { expanded = !expanded } // Make the whole section header clickable
+            .padding(horizontal = 20.dp, vertical = 16.dp) // Original padding maintained for the clickable area
     ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Text(
-            text = content,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            lineHeight = 22.sp
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween // Space out title and icon
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f) // Give text weight to push icon to end
+            )
+            Spacer(modifier = Modifier.width(8.dp)) // Small space between text and icon
+            Icon(
+                imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp) // Standard icon size
+            )
+        }
+
+        // Animated visibility for the content
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(expandFrom = Alignment.Top),
+            exit = shrinkVertically(shrinkTowards = Alignment.Top)
+        ) {
+            Column { // Use a Column here to apply padding to the content itself
+                Spacer(modifier = Modifier.height(8.dp)) // Spacer between title and content when expanded
+                Text(
+                    text = content,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 22.sp
+                )
+            }
+        }
     }
 }

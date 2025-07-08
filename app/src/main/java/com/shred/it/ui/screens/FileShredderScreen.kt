@@ -5,12 +5,10 @@ import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.AnimatedVisibility // Import for animation
+import androidx.compose.animation.expandVertically // Import for expand animation
+import androidx.compose.animation.shrinkVertically // Import for shrink animation
+import androidx.compose.foundation.clickable // Import for making row clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,27 +25,43 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Loop
+
+// New imports for log icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+
+
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -61,15 +75,19 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector // Import for ImageVector type
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.shred.it.core.FileInfo
 import com.shred.it.core.FileShredderCore
 import com.shred.it.core.LogEntry
@@ -85,6 +103,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+// ViewModel remains unchanged
 class FileShredderViewModel : ViewModel() {
     private val core = FileShredderCore()
 
@@ -145,7 +164,10 @@ class FileShredderViewModel : ViewModel() {
 
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
-fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
+fun FileShredderScreen(
+    innerPadding: PaddingValues, // Accept innerPadding from Scaffold
+    vm: FileShredderViewModel = viewModel()
+) {
     val scrollState = rememberScrollState()
     val colors = MaterialTheme.colorScheme
     val ctx = LocalContext.current
@@ -160,16 +182,14 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
     var showConf by remember { mutableStateOf(false) }
     var showSet by remember { mutableStateOf(false) }
     var confStep by remember { mutableIntStateOf(0) }
+    var logsExpanded by remember { mutableStateOf(false) } // State for logs dropdown
 
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
     val isTablet = screenWidth >= 600.dp
 
-    val contentPadding = if (isTablet) {
-        PaddingValues(horizontal = screenWidth * 0.1f, vertical = 32.dp)
-    } else {
-        PaddingValues(20.dp)
-    }
+    val contentHorizontalPadding = if (isTablet) screenWidth * 0.1f else 20.dp
+    val contentVerticalPadding = if (isTablet) 32.dp else 20.dp
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let {
@@ -189,160 +209,173 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        containerColor = colors.background
-    ) { padding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(innerPadding) // Apply the Scaffold's padding
+            .verticalScroll(scrollState)
+            .padding(horizontal = contentHorizontalPadding, vertical = contentVerticalPadding) // Apply screen-specific padding
+    ) {
+        // --- Header Section ---
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 24.dp), // Slightly reduced padding
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Shredder",
+                color = colors.primary,
+                style = MaterialTheme.typography.displaySmall.copy(
+                    fontFamily = FontFamily.SansSerif,
+                    fontWeight = FontWeight.ExtraBold // More impactful weight
+                )
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) { // Reduced spacing for icons
+                IconButton(onClick = { ThemePreferences.isDarkMode = !ThemePreferences.isDarkMode }) {
+                    Icon(
+                        // Conditionally choose the icon based on the current theme state
+                        imageVector = if (ThemePreferences.isDarkMode) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                        contentDescription = "Toggle theme",
+                        tint = colors.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { showSet = true }) {
+                    Icon(
+                        Icons.Filled.Settings, // Material 3 extended icon
+                        contentDescription = "Open Settings",
+                        tint = colors.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        // --- File Selection/Info Card ---
+        // Conditionally display FilePreviewCard if a file is selected
+        file?.let { selectedFile ->
+            FilePreviewCard(
+                file = selectedFile,
+                onClearFile = {
+                    vm.clearFile()
+                    scope.launch { snackbarHostState.showSnackbar("File removed from queue") }
+                },
+                formatFileSize = vm::formatFileSize // Pass the formatting function
+            )
+        }
+
+
+        // --- Action Buttons ---
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp), // Increased padding
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            ElevatedButton( // Using ElevatedButton for built-in elevation
+                onClick = { pick.launch(arrayOf("*/*")) },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp), // Slightly larger than 48dp for better touch target, but not too big
+                shape = RoundedCornerShape(12.dp), // Consistent rounded corners
+                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 4.dp), // Clearer elevation
+                enabled = state == ShredderState.IDLE || state == ShredderState.FILE_SELECTED || state == ShredderState.COMPLETE || state == ShredderState.ERROR
+            ) {
+                Icon(Icons.AutoMirrored.Filled.InsertDriveFile, contentDescription = null, modifier = Modifier.size(20.dp)) // New icon
+                Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
+                Text("SELECT", style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.SansSerif)) // SansSerif for button text
+            }
+
+            ElevatedButton( // Using ElevatedButton
+                onClick = {
+                    if (file != null) {
+                        confStep = 0
+                        showConf = true
+                    } else {
+                        scope.launch { snackbarHostState.showSnackbar("Please select a file to shred first") }
+                    }
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(52.dp), // Consistent height
+                shape = RoundedCornerShape(12.dp), // Consistent rounded corners
+                colors = ButtonDefaults.elevatedButtonColors(containerColor = colors.error), // Error color for shred
+                elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 4.dp), // Clearer elevation
+                enabled = file != null && (state == ShredderState.IDLE || state == ShredderState.FILE_SELECTED)
+            ) {
+                Icon(Icons.Filled.DeleteForever, contentDescription = null, modifier = Modifier.size(20.dp)) // New icon
+                Spacer(modifier = Modifier.width(8.dp)) // Reduced spacing
+                Text(if (state == ShredderState.OVERWRITING) "SHREDDING" else "SHRED", style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.SansSerif)) // SansSerif for button text
+            }
+        }
+
+        // --- Progress Indicator ---
+        if (prog != null && (state == ShredderState.OVERWRITING || state == ShredderState.VERIFYING || state == ShredderState.RENAMING || state == ShredderState.DELETING)) {
+            prog?.let { p ->
+                Surface( // Using Surface for progress card
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp), // Increased padding
+                    shape = RoundedCornerShape(12.dp), // Consistent rounded corners
+                    tonalElevation = 3.dp // Subtle elevation
+                ) {
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Round ${p.currentRound}/${p.totalRounds}", style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.SansSerif))
+                            Text("${p.progress}%", color = colors.error, style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.SansSerif))
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        LinearProgressIndicator(
+                            progress = { p.progress / 100f },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = colors.error,
+                            trackColor = colors.errorContainer // Use errorContainer for track
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Text(
+                            text = p.currentOperation,
+                            color = colors.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.SansSerif),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
+
+        // --- Activity Logs Section (Collapsible) ---
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(padding) // Use padding from Scaffold
-                .padding(contentPadding)
+                .fillMaxWidth()
+                .padding(bottom = 24.dp) // Adjusted padding for the whole log section
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp),
+                    .clickable { logsExpanded = !logsExpanded } // Make the row clickable to toggle
+                    .padding(bottom = 12.dp), // Adjusted padding
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Shredder",
-                    color = colors.primary,
-                    style = MaterialTheme.typography.displaySmall,
-                    fontWeight = FontWeight.Black
-                )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    IconButton(onClick = { ThemePreferences.isDarkMode = !ThemePreferences.isDarkMode }) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = "Toggle theme",
-                            tint = colors.primary
-                        )
-                    }
-                    IconButton(onClick = { showSet = true }) {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "Open Settings",
-                            tint = colors.primary
-                        )
-                    }
-                }
-            }
-
-            AnimatedVisibility(
-                visible = file != null,
-                enter = slideInVertically { -it } + fadeIn(),
-                exit = slideOutVertically { -it } + fadeOut()
-            ) {
-                file?.let { f ->
-                    Card(modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
-                        Row(
-                            modifier = Modifier.padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = f.name,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    text = "${vm.formatFileSize(f.size)} • ${f.mimeType}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = colors.onSurfaceVariant
-                                )
-                            }
-                            IconButton(onClick = {
-                                vm.clearFile()
-                                scope.launch { snackbarHostState.showSnackbar("File removed from queue") }
-                            }) {
-                                Icon(Icons.Default.Close, contentDescription = "Clear Selected File")
-                            }
-                        }
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Button(
-                    onClick = { pick.launch(arrayOf("*/*")) },
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    enabled = state == ShredderState.IDLE || state == ShredderState.FILE_SELECTED || state == ShredderState.COMPLETE || state == ShredderState.ERROR
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("SELECT", fontWeight = FontWeight.Bold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "ACTIVITY LOGS",
+                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold),
+                        color = colors.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Icon(
+                        imageVector = if (logsExpanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                        contentDescription = if (logsExpanded) "Collapse logs" else "Expand logs",
+                        tint = colors.onSurfaceVariant
+                    )
                 }
 
-                Button(
-                    onClick = {
-                        if (file != null) {
-                            confStep = 0
-                            showConf = true
-                        } else {
-                            scope.launch { snackbarHostState.showSnackbar("Please select a file to shred first") }
-                        }
-                    },
-                    modifier = Modifier.weight(1f).height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.error),
-                    enabled = file != null && (state == ShredderState.IDLE || state == ShredderState.FILE_SELECTED)
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(if (state == ShredderState.OVERWRITING) "SHREDDING" else "SHRED", fontWeight = FontWeight.Bold)
-                }
-            }
-
-            AnimatedVisibility(
-                visible = prog != null && (state == ShredderState.OVERWRITING || state == ShredderState.VERIFYING || state == ShredderState.RENAMING || state == ShredderState.DELETING),
-                enter = slideInVertically { it } + fadeIn(),
-                exit = fadeOut()
-            ) {
-                prog?.let { p ->
-                    Card(modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp)) {
-                        Column(modifier = Modifier.padding(20.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Round ${p.currentRound}/${p.totalRounds}", fontWeight = FontWeight.Bold)
-                                Text("${p.progress}%", color = colors.error, fontWeight = FontWeight.Bold)
-                            }
-
-                            Spacer(modifier = Modifier.height(12.dp))
-                            LinearProgressIndicator(
-                                progress = { p.progress / 100f },
-                                modifier = Modifier.fillMaxWidth(),
-                                color = colors.error
-                            )
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = p.currentOperation,
-                                color = colors.onSurfaceVariant,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        }
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("ACTIVITY LOGS", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 TextButton(
                     onClick = {
                         vm.clearLogs()
@@ -350,63 +383,102 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                     },
                     enabled = logs.isNotEmpty()
                 ) {
-                    Icon(Icons.Default.Clear, contentDescription = "Clear Logs", modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Clear Logs")
+                    Icon(Icons.Default.Clear, contentDescription = "Clear Logs", modifier = Modifier.size(18.dp), tint = colors.onSurfaceVariant) // Smaller icon, subtle tint
+                    Spacer(modifier = Modifier.width(4.dp)) // Reduced spacing
+                    Text("Clear Logs", style = MaterialTheme.typography.labelMedium.copy(fontFamily = FontFamily.SansSerif)) // Smaller label
                 }
             }
 
-            Card(
-                modifier = Modifier.fillMaxWidth().heightIn(min = 100.dp, max = 300.dp)
+            // Animated visibility for the logs content
+            AnimatedVisibility(
+                visible = logsExpanded,
+                enter = expandVertically(expandFrom = Alignment.Top),
+                exit = shrinkVertically(shrinkTowards = Alignment.Top)
             ) {
-                if (logs.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text("No activity yet.", color = colors.onSurfaceVariant)
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        reverseLayout = true
-                    ) {
-                        items(logs.reversed()) { log ->
-                            val logColor = when (log.type) {
-                                LogType.ERROR -> colors.error
-                                LogType.WARNING -> colors.secondary
-                                LogType.SUCCESS -> colors.tertiary
-                                LogType.PROGRESS -> colors.primary
-                                LogType.INFO -> colors.onSurfaceVariant
-                                LogType.SECURITY -> colors.error
+                OutlinedCard( // Using OutlinedCard for a distinct log area
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 150.dp, max = 300.dp), // Min height for better visibility
+                    shape = RoundedCornerShape(12.dp), // Consistent rounded corners
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = colors.surface, // Background for logs
+                        contentColor = colors.onSurface
+                    )
+                ) {
+                    if (logs.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(
+                                "No activity yet.",
+                                color = colors.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.SansSerif)
+                            )
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp), // Tighter spacing for logs
+                            reverseLayout = true
+                        ) {
+                            items(logs.reversed()) { log ->
+                                val logColor = when (log.type) {
+                                    LogType.ERROR -> colors.error
+                                    LogType.WARNING -> colors.secondary
+                                    LogType.SUCCESS -> colors.primary // Success uses primary for a sharp look
+                                    LogType.PROGRESS -> colors.onSurfaceVariant
+                                    LogType.INFO -> colors.onSurfaceVariant
+                                    LogType.SECURITY -> colors.error // Security warnings are critical
+                                }
+                                val logIcon: ImageVector = when (log.type) { // <--- NEW: Determine icon based on log type
+                                    LogType.ERROR -> Icons.Filled.Error
+                                    LogType.WARNING -> Icons.Filled.Warning
+                                    LogType.SUCCESS -> Icons.Filled.CheckCircle
+                                    LogType.PROGRESS -> Icons.Filled.Sync
+                                    LogType.INFO -> Icons.Filled.Info
+                                    LogType.SECURITY -> Icons.Filled.Security
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = logIcon,
+                                        contentDescription = log.type.name,
+                                        tint = logColor,
+                                        modifier = Modifier.size(16.dp) // Smaller icon for logs
+                                    )
+                                    Text(
+                                        text = log.message,
+                                        color = logColor,
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.SansSerif) // SansSerif for logs
+                                    )
+                                }
                             }
-                            Text(text = log.message, color = logColor, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
         }
+        // Spacer(modifier = Modifier.height(24.dp)) // This spacer should be after the entire logs column
+
     }
 
 
+    // --- AlertDialogs (Confirm Shred, Settings) ---
     if (showConf) {
         AlertDialog(
             onDismissRequest = { showConf = false },
             title = {
-                AnimatedContent(
-                    targetState = if (confStep == 0) "CONFIRM SHRED" else "FINAL WARNING",
-                    label = "Confirmation Dialog Title"
-                ) { titleText ->
-                    Text(titleText, color = colors.error, fontWeight = FontWeight.Bold)
-                }
+                Text(
+                    if (confStep == 0) "CONFIRM SHRED" else "FINAL WARNING",
+                    style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.SansSerif, color = colors.error)
+                )
             },
             text = {
-                AnimatedContent(
-                    targetState = if (confStep == 0) "This will permanently destroy the selected file. This action is irreversible. Are you sure you want to proceed?"
-                    else "The file will be unrecoverable after this operation. THIS IS YOUR LAST CHANCE TO CANCEL.",
-                    label = "Confirmation Dialog Text"
-                ) { descText ->
-                    Text(descText, fontSize = 16.sp, lineHeight = 22.sp)
-                }
+                Text(
+                    if (confStep == 0) "This will permanently destroy the selected file. This action is irreversible. Are you sure you want to proceed?"
+                    else "The file will be unrecoverable after this operation. THIS IS YOUR LAST CHANCE TO CANCEL. By destroying the file you agree to our terms of service .",
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.SansSerif)
+                )
             },
             confirmButton = {
                 Button(
@@ -418,14 +490,16 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                             file?.let { vm.shredFile(ctx, it) }
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.error),
+                    shape = RoundedCornerShape(12.dp), // Consistent rounded corners
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                 ) {
-                    Text(if (confStep == 0) "CONTINUE" else "DESTROY FILE")
+                    Text(if (confStep == 0) "CONTINUE" else "DESTROY FILE", style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.SansSerif))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showConf = false }) {
-                    Text("CANCEL")
+                    Text("CANCEL", style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.SansSerif))
                 }
             }
         )
@@ -434,13 +508,13 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
     if (showSet) {
         AlertDialog(
             onDismissRequest = { showSet = false },
-            title = { Text("SHREDDER SETTINGS", fontWeight = FontWeight.Bold) },
+            title = { Text("SHREDDER SETTINGS", style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.SansSerif)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     SettingRow(
                         title = "Overwrite Rounds",
                         description = "${set.overwriteRounds}",
-                        icon = Icons.Default.Refresh
+                        icon = Icons.Filled.Loop
                     ) {
                         val currentRounds = set.overwriteRounds
                         val nextRounds = when (currentRounds) {
@@ -452,7 +526,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                     SettingRow(
                         title = "Random Rename File",
                         description = if (set.useRandomRename) "ENABLED" else "DISABLED",
-                        icon = Icons.Default.Edit
+                        icon = Icons.Filled.Edit
                     ) {
                         vm.toggleRename()
                         scope.launch { snackbarHostState.showSnackbar("Random rename ${if (!set.useRandomRename) "enabled" else "disabled"}") }
@@ -460,7 +534,7 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
                     SettingRow(
                         title = "Verify Overwrites",
                         description = if (set.verifyOverwrites) "ENABLED" else "DISABLED",
-                        icon = Icons.Default.CheckCircle
+                        icon = Icons.Filled.VerifiedUser
                     ) {
                         vm.toggleVerify()
                         scope.launch { snackbarHostState.showSnackbar("Verify overwrites ${if (!set.verifyOverwrites) "enabled" else "disabled"}") }
@@ -469,18 +543,94 @@ fun FileShredderScreen(vm: FileShredderViewModel = viewModel()) {
             },
             confirmButton = {
                 Button(onClick = { showSet = false }) {
-                    Text("DONE")
+                    Text("DONE", style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.SansSerif))
                 }
             }
         )
     }
 }
 
+// FilePreviewCard remains unchanged from previous step
+@Composable
+private fun FilePreviewCard(
+    file: FileInfo,
+    onClearFile: () -> Unit,
+    formatFileSize: (Long) -> String // Function to format file size
+) {
+    val colors = MaterialTheme.colorScheme
+    val isImage = file.mimeType.startsWith("image/")
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 20.dp),
+        shape = RoundedCornerShape(12.dp),
+        tonalElevation = 3.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // Conditionally display image or default icon
+            if (isImage) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp) // Fixed height for image preview
+                        .clip(RoundedCornerShape(8.dp)), // Slightly less rounded corners for inner image
+                    contentAlignment = Alignment.Center
+                ) {
+                    AsyncImage( //
+                        model = file.uri, //
+                        contentDescription = "Selected Image Preview", //
+                        modifier = Modifier.fillMaxSize(), //
+                        contentScale = ContentScale.Crop //
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp)) // Space between image and text
+            } else {
+                // If not an image, show a generic file icon
+                Icon(
+                    Icons.AutoMirrored.Filled.InsertDriveFile,
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp).align(Alignment.CenterHorizontally),
+                    tint = colors.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            // File details and clear button (common for both image and non-image files)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = file.name,
+                        style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${formatFileSize(file.size)} • ${file.mimeType}",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.SansSerif),
+                        color = colors.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onClearFile) {
+                    Icon(Icons.Default.Close, contentDescription = "Clear Selected File", tint = colors.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+
 @Composable
 private fun SettingRow(
     title: String,
     description: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector, // Use ImageVector for the icon type
     onClick: () -> Unit
 ) {
     TextButton(
@@ -497,20 +647,14 @@ private fun SettingRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                AnimatedContent(
-                    targetState = description,
-                    label = "Setting Description Animation"
-                ) { desc ->
-                    Text(
-                        text = desc,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.SansSerif),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

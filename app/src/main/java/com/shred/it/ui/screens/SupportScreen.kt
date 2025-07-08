@@ -11,7 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.* // Import all filled icons for easier access
+import androidx.compose.material.icons.outlined.RateReview
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -62,12 +63,12 @@ fun SupportScreen(
     // Animated values
     val headerScale by animateFloatAsState(
         targetValue = if (isVisible) 1f else 0.8f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f)
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f), label = "headerScale"
     )
 
     val contentAlpha by animateFloatAsState(
         targetValue = if (isVisible) 1f else 0f,
-        animationSpec = tween(1000, delayMillis = 200)
+        animationSpec = tween(1000, delayMillis = 200), label = "contentAlpha"
     )
 
     val infiniteTransition = rememberInfiniteTransition()
@@ -78,7 +79,7 @@ fun SupportScreen(
         animationSpec = infiniteRepeatable(
             animation = tween(1500, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
-        )
+        ), label = "pulseScale"
     )
 
     // Support tiers data
@@ -88,7 +89,7 @@ fun SupportScreen(
                 title = "Coffee Supporter",
                 description = "Buy me a coffee to keep coding",
                 price = "$2.99",
-                icon = Icons.Default.ShoppingCart,
+                icon = Icons.Default.Coffee, // Changed icon to Coffee
                 color = Color(0xFF8B4513),
                 benefits = listOf("My eternal gratitude", "Supporter badge", "Early access to updates")
             ),
@@ -96,7 +97,7 @@ fun SupportScreen(
                 title = "Premium Supporter",
                 description = "Support ongoing development",
                 price = "$9.99",
-                icon = Icons.Default.Star,
+                icon = Icons.Default.Diamond, // Changed icon to Diamond
                 color = Color(0xFFFFD700),
                 benefits = listOf("All Coffee benefits", "Priority support", "Feature requests", "Monthly updates")
             )
@@ -109,25 +110,25 @@ fun SupportScreen(
             ContactOption(
                 title = "Bug Report",
                 description = "Found a bug? Let us know!",
-                icon = Icons.Default.Share,
+                icon = Icons.Default.BugReport, // Changed icon to BugReport
                 action = "bug_report"
             ),
             ContactOption(
                 title = "Feature Request",
                 description = "Suggest new features",
-                icon = Icons.Default.AddCircle,
+                icon = Icons.Default.TipsAndUpdates, // Changed icon to TipsAndUpdates
                 action = "feature_request"
             ),
             ContactOption(
                 title = "General Support",
                 description = "Need help using the app?",
-                icon = Icons.Default.Person,
+                icon = Icons.Default.SupportAgent, // Changed icon to SupportAgent
                 action = "general_support"
             ),
             ContactOption(
                 title = "Feedback",
                 description = "Share your thoughts",
-                icon = Icons.Default.AccountCircle,
+                icon = Icons.Default.Feedback, // Changed icon to Feedback
                 action = "feedback"
             )
         )
@@ -232,7 +233,7 @@ fun SupportScreen(
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Favorite,
+                                    imageVector = Icons.Default.Favorite, // Kept as Favorite is suitable
                                     contentDescription = null,
                                     modifier = Modifier
                                         .size(48.dp)
@@ -282,7 +283,7 @@ fun SupportScreen(
                         )
 
                         Icon(
-                            imageVector = Icons.Default.ShoppingCart,
+                            imageVector = Icons.Default.Redeem, // Changed icon to Redeem
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
@@ -334,9 +335,9 @@ fun SupportScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Star,
+                                    imageVector = Icons.Default.Reviews, // Changed icon to Reviews
                                     contentDescription = null,
-                                    tint = Color(0xFFFFD700),
+                                    tint = Color(0xFFFF2BBA),
                                     modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -358,7 +359,7 @@ fun SupportScreen(
                         }
 
                         Icon(
-                            imageVector = Icons.Default.Share,
+                            imageVector = Icons.Outlined.RateReview, // Changed icon to Send (for sharing)
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.tertiary,
                             modifier = Modifier.size(24.dp)
@@ -393,17 +394,17 @@ fun SupportScreen(
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
                             StatItem(
-                                icon = Icons.Default.ThumbUp,
-                                value = "100+",
+                                icon = Icons.Default.Code, // Changed icon to Code
+                                value = "50",
                                 label = "Hours Coded"
                             )
                             StatItem(
-                                icon = Icons.Default.Build,
-                                value = "15+",
+                                icon = Icons.Default.Upgrade, // Changed icon to Upgrade
+                                value = "2",
                                 label = "Updates"
                             )
                             StatItem(
-                                icon = Icons.Default.Warning,
+                                icon = Icons.Default.BugReport, // Changed icon to BugReport
                                 value = "500+",
                                 label = "Bugs Fixed"
                             )
@@ -430,7 +431,7 @@ fun SupportScreen(
                         )
 
                         Icon(
-                            imageVector = Icons.Default.Person,
+                            imageVector = Icons.Default.SupportAgent, // Changed icon to SupportAgent
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(24.dp)
@@ -469,7 +470,7 @@ fun SupportScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Favorite,
+                            imageVector = Icons.Default.Favorite, // Kept as Favorite is suitable
                             contentDescription = null,
                             tint = Color.Red,
                             modifier = Modifier.size(32.dp)
@@ -509,7 +510,7 @@ fun SupportTierCard(
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f)
+        animationSpec = spring(dampingRatio = 0.6f), label = "tierCardScale"
     )
 
     Card(
@@ -555,7 +556,7 @@ fun SupportTierCard(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = tier.icon,
+                    imageVector = tier.icon, // This icon comes from the SupportTier data class
                     contentDescription = null,
                     tint = tier.color,
                     modifier = Modifier.size(32.dp)
@@ -603,7 +604,7 @@ fun SupportTierCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Check,
+                            imageVector = Icons.Default.Check, // Kept as Check is suitable for benefits
                             contentDescription = null,
                             tint = tier.color,
                             modifier = Modifier.size(16.dp)
@@ -644,7 +645,7 @@ fun ContactOptionCard(
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = option.icon,
+                imageVector = option.icon, // This icon comes from the ContactOption data class
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.size(32.dp)
@@ -682,7 +683,7 @@ fun StatItem(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector = icon,
+            imageVector = icon, // This icon comes from the StatItem parameters
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(24.dp)
