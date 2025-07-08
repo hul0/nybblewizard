@@ -44,7 +44,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 
 // Assuming FlatCard is defined elsewhere in your project, e.g.:
-import com.shred.it.ui.screens.FlatCard // Make sure this path is correct
 
 data class FAQItem(
     val id: Int, // Add an ID for stable keys in LazyColumn
@@ -53,7 +52,7 @@ data class FAQItem(
 )
 
 @Composable
-fun FAQScreen() {
+fun FAQScreen(innerPadding: PaddingValues) {
     val faqItems = remember {
         listOf(
             FAQItem(1, "What algorithm is used for overwriting?", "A sequence of random data, alternating patterns (0xAA/0x55, 0x55/0xAA), zeros, and ones. The final pass is always zeros with a flush."),

@@ -10,10 +10,10 @@ android {
 
     defaultConfig {
         applicationId = "com.shred.it"
-        minSdk = 33 // Good choice for modern Android, reduces backward compatibility issues
+        minSdk = 24 // Good choice for modern Android, reduces backward compatibility issues
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -58,17 +58,8 @@ android {
         // viewBinding = true // Correctly commented out if not using ViewBinding.
     }
 
-    packagingOptions {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/LICENSE.md"
-            excludes += "/META-INF/LICENSE-notice.md"
-            excludes += "/*.properties"
-            excludes += "/META-INF/*.properties"
-            // This exclusion can sometimes help, but test carefully as it might affect some libraries.
-            // excludes += "kotlin/coroutines/coroutines.kotlin_builtins"
-        }
-    }
+    // This exclusion can sometimes help, but test carefully as it might affect some libraries.
+    // excludes += "kotlin/coroutines/coroutines.kotlin_builtins"
 
     // ⭐⭐⭐ HIGHLY RECOMMENDED FOR APK SIZE REDUCTION ON GOOGLE PLAY ⭐⭐⭐
     // Enable Android App Bundles for publishing. This is the most effective way
@@ -109,6 +100,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.runtime:runtime")
+    implementation("com.exyte:animated-navigation-bar:1.0.0")
 
     // ⭐⭐⭐ CRUCIAL FOR APK SIZE: REMOVE OLD MATERIAL DESIGN LIBRARY ⭐⭐⭐
     // This is the old View-based Material library. You are using Compose Material 3.
@@ -116,7 +108,10 @@ dependencies {
 
     // Material Design 3 (Compose)
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.compose.material:material-icons-core") // For essential icons
+    implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended") // For essential icons
+
+    // For essential icons
 
     // ⭐⭐⭐ CONSIDER REMOVING or being selective with material-icons-extended ⭐⭐⭐
     // This library is VERY LARGE. If you only use a few icons from it,
@@ -126,8 +121,6 @@ dependencies {
     // REMOVE (if few icons used): implementation("androidx.compose.material:material-icons-extended")
 
 
-    // DataStore - ⭐ UPDATE TO LATEST STABLE ⭐
-    implementation("androidx.datastore:datastore-preferences:1.1.1") // Latest stable as of current knowledge
 
     // Activity & Animation - ⭐ UPDATE TO LATEST STABLE ⭐
     implementation("androidx.activity:activity-compose:1.9.0") // Latest stable as of current knowledge
@@ -141,7 +134,7 @@ dependencies {
 
     // Coroutines - ⭐ UPDATE TO LATEST STABLE ⭐
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.0") // Latest stable as of current knowledge
-
+    implementation("io.coil-kt:coil-compose:2.6.0")
     // Debug tools - ⭐ CRITICAL: Ensure these are ONLY in debugImplementation ⭐
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

@@ -1,220 +1,266 @@
 package com.shred.it.ui.screens
 
-import androidx.compose.animation.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 
-// The legally optimized infoList
+// The legally optimized infoList (remains unchanged)
 val infoList = listOf(
     "How It Works" to
-            "This app is engineered to render file recovery extremely difficult. It employs AES-256 encryption followed by multiple overwrite passes using industry-recognized secure data patterns. While these methods are aligned with data destruction best practices, due to the complexities of modern storage hardware, file systems, and forensic techniques, we cannot guarantee absolute, irreversible data irrecoverability in every conceivable scenario. The app aims for best-effort destruction.",
+            "This app uses AES-256 encryption and multi-pass secure overwriting (e.g., DoD 5220.22-M inspired patterns) to irreversibly destroy data. It performs real-time buffer randomization, journal flushing, and overwrite verification to maximize shredding reliability within the physical limits of your device.",
 
-    "Privacy Commitment" to
-            "All file shredding and related operations are performed exclusively locally on your device. This app is designed with a strict no-data-out policy: it does not access the internet, transmit any data, collect analytics, generate crash reports, include telemetry, or track user activity. Your digital privacy remains entirely on your device and under your control.",
+    "Overwrite Verification" to
+            "After each overwrite round, a configurable sampling strategy checks random file regions for conformity to the expected pattern (e.g., zeros in final pass), improving user assurance without requiring full data re-reading.",
 
-    "100% Free. No Ads. No Strings." to
-            "This application is provided completely free of charge. It contains no advertisements, no in-app purchases, no subscription models, and no hidden monetization layers. There are no financial costs or behavioral data collection associated with its use, now or in the future.",
+    "Local-Only Operation" to
+            "All operations happen 100% locally on your device. There is no server, cloud, telemetry, or external sync. The app does not request the internet permission at all.",
 
-    "Transparency & Security Posture" to
-            "While the application's source code is not publicly open, its architecture and design principles prioritize user privacy and data security. We encourage cybersecurity researchers and independent testers to responsibly examine the app's behavior, report any potential vulnerabilities, and verify its operational claims. Our commitment is to trust through verifiable design.",
+    "Buffer Management" to
+            "The shredder uses adaptive dual-buffer logic to reduce memory fragmentation and ensure back-pressure aware writes, minimizing performance spikes and improving predictability.",
 
-    "End User License Agreement (EULA)" to
-            "By installing or using this application, you agree to a limited, non-exclusive, non-transferable, and non-commercial license to use it solely for your lawful, personal purposes. This End User License Agreement (EULA) constitutes the entire and primary agreement between you and the developers concerning the app's use and supersedes any prior or contemporaneous oral or written communications, marketing materials, or other representations.",
+    "Security Guarantees" to
+            "While designed using best-practice methods for secure deletion, no mobile storage (especially SSDs) can offer perfect, irreversible erasure. This app guarantees 'best-effort' destruction—not absolute forensic immunity.",
 
-    "Eligibility & Capacity" to
-            "To use this app, you must be at least 18 years of age and possess the full legal capacity to enter into a binding contract in your jurisdiction. By using this app, you affirm that you meet these eligibility requirements. If you do not meet these conditions, you must immediately cease all use and uninstall the app.",
+    "File Validation & Pre-Checks" to
+            "Before shredding, each file is checked for writability, correct access flags, and reasonable size vs memory usage ratios. Unsafe operations are aborted and reported.",
 
-    "Prohibited Uses" to
-            "This app is strictly prohibited from being used for any unlawful purpose, including but not limited to the destruction of evidence, obstruction of justice, evasion of law enforcement, circumvention of data retention policies, or any activity related to criminal conduct. You bear sole and full responsibility for your actions and the consequences of using this app.",
+    "Device-Aware Logic" to
+            "Storage types (SSD, HDD, removable, network) are detected heuristically. SSD-specific warnings are shown due to wear-leveling limitations beyond app control.",
 
-    "No Law Enforcement or Government Affiliation" to
-            "This application is developed independently and is neither affiliated with, endorsed by, nor intended for use by any law enforcement, military, intelligence, or governmental agency. It is designed exclusively for individual civilian use for personal data privacy enhancement.",
+    "Overwrite Patterns" to
+            "The app uses cryptographically secure random data, zeros, ones, and alternating byte sequences (e.g., 0xAA/0x55) to defeat forensic recovery techniques.",
 
-    "No Certifications or Official Approval" to
-            "This app has not undergone formal certification by, nor received official approval from, any regulatory bodies or compliance frameworks, including but not limited to GDPR, HIPAA, FIPS, ISO, NIST, CISA, or NSA. It is not suitable for use in regulated environments, government operations, or situations requiring certified data sanitization.",
+    "Secure Rename Before Deletion" to
+            "Before deletion, filenames are randomized using a cryptographically secure PRNG to prevent post-mortem metadata correlation. Some file systems may limit this.",
 
-    "Intellectual Property & Licensing" to
-            "All rights, title, and interest in and to the application, including its design, branding (names, logos, icons), user experience (UX) patterns, underlying logic, and all associated intellectual property, are exclusively owned by the original developers. You are prohibited from reverse engineering, decompiling, disassembling, modifying, copying, redistributing, reselling, sublicensing, repackaging, or creating derivative works from this app in whole or in part without explicit written permission.",
+    "Clipboard Clearing" to
+            "If enabled in settings, the clipboard is securely cleared after deletion to prevent residual data leaks from copied filenames or URIs.",
 
-    "Export Control Compliance" to
-            "This application utilizes strong cryptographic functions (AES-256) which may be subject to export, import, or re-export control laws and regulations in various jurisdictions, including but not limited to the United States and India. By using or downloading this app, you represent and warrant that you are not located in, under the control of, or a national or resident of any country to which the export, import, or use of encryption software is restricted or prohibited. You further agree to comply strictly with all applicable local, national, and international export and import control laws and regulations.",
+    "Background & Foreground Modes" to
+            "The app supports both background shredding via WorkManager and foreground mode with real-time progress. Critical operations stay foreground to prevent memory death.",
 
-    "Disclaimer of Results" to
-            "While this app is developed based on secure deletion principles and best-effort destruction methods, we provide no guarantee or warranty that data shredded using this application is absolutely, permanently, and irreversibly irrecoverable in all scenarios. The effectiveness of data destruction can be influenced by various external factors, including but not limited to the type of storage hardware (e.g., SSDs, HDDs, flash memory), underlying file system behaviors, operating system caching, wear-leveling algorithms, and advanced forensic recovery techniques. It is your sole responsibility to independently verify the complete and secure removal of your files.",
+    "Symlink Protection" to
+            "To avoid accidental system damage, symbolic links are detected and users are warned. Shredding is disabled for such files.",
 
-    "Force Majeure" to
-            "The developers shall not be held liable for any failure, delay, or interruption in the performance or availability of the app arising from causes beyond our reasonable control, including but not limited to acts of God, natural disasters, war, terrorism, civil unrest, governmental acts or restrictions, legal restrictions, app store policy changes or removals, pandemics, or widespread system failures.",
+    "Crash Resilience" to
+            "Buffers are zeroed and flushed on cancel/error/exit to avoid sensitive residue in memory. Java's GC is explicitly triggered after cleanup.",
 
-    "Limitation of Liability" to
-            "TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE DEVELOPERS, THEIR AFFILIATES, OR THEIR RESPECTIVE LICENSORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, PUNITIVE, OR EXEMPLARY DAMAGES WHATSOEVER, INCLUDING BUT NOT LIMITED TO DAMAGES FOR LOSS OF PROFITS, DATA, GOODWILL, BUSINESS INTERRUPTION, OR ANY OTHER INTANGIBLE LOSSES, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OR INABILITY TO USE THE APP, EVEN IF THE DEVELOPERS HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES. YOUR SOLE AND EXCLUSIVE REMEDY FOR ANY DISSATISFACTION WITH THE APP IS TO STOP USING IT AND UNINSTALL IT.",
+    "Open Design Invitation" to
+            "Although not open-source, we invite audits and reproducible builds. Community testing and responsible disclosure of flaws is strongly encouraged.",
 
-    "Indemnification" to
-            "You agree to defend, indemnify, and hold harmless the developers, their affiliates, officers, directors, employees, and agents from and against any and all claims, liabilities, damages, losses, costs, expenses (including reasonable legal fees), and government fines arising out of or in any way connected with your access to or use of the app, your violation of these terms, or your infringement of any intellectual property or other right of any person or entity.",
+    "Performance Adaptive" to
+            "Buffer size adapts to file size and device RAM constraints. Large files are streamed with rate-limited I/O to prevent UI or system throttling.",
 
-    "No Warranty Disclaimer" to
-            "THIS APP IS PROVIDED \"AS IS\" AND \"AS AVAILABLE,\" WITHOUT WARRANTIES OF ANY KIND, WHETHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE. THE DEVELOPERS EXPRESSLY DISCLAIM ALL WARRANTIES, INCLUDING, BUT NOT LIMITED TO, IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, ACCURACY, RELIABILITY, PERFORMANCE, SECURITY OUTCOMES, OR NON-INFRINGEMENT. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE APP IS WITH YOU. NO ORAL OR WRITTEN INFORMATION OR ADVICE GIVEN BY THE DEVELOPERS SHALL CREATE A WARRANTY.",
+    "No Analytics, No Ads" to
+            "This app does not collect analytics, show ads, or use crash reporters. It is a fully offline, privacy-respecting utility with no monetization layer.",
 
-    "Dispute Resolution & Arbitration" to
-            "TO THE FULLEST EXTENT PERMITTED BY APPLICABLE LAW, ANY CLAIM, DISPUTE, OR CONTROVERSY ARISING OUT OF OR RELATING TO THIS AGREEMENT OR THE APP SHALL BE FINALLY RESOLVED BY BINDING ARBITRATION ADMINISTERED BY THE AMERICAN ARBITRATION ASSOCIATION (AAA) UNDER ITS CONSUMER ARBITRATION RULES. THE ARBITRATION SHALL TAKE PLACE IN THE STATE OF DELAWARE, USA. YOU HEREBY WAIVE ANY RIGHT TO A TRIAL BY JURY OR TO PARTICIPATE AS A PLAINTIFF OR CLASS MEMBER IN ANY CLASS ACTION OR REPRESENTATIVE PROCEEDING. NOTWITHSTANDING THE FOREGOING, USERS RESIDING OUTSIDE THE UNITED STATES MAY RETAIN CERTAIN STATUTORY RIGHTS UNDER THEIR LOCAL CONSUMER PROTECTION LAWS WHICH MAY NOT BE WAIVABLE.",
+    "Source of Truth" to
+            "All actual behavior is dictated by the installed codebase. Documentation, marketing, or screenshots cannot override what the app does internally.",
 
-    "Severability Clause" to
-            "If any provision or part of a provision of these terms is found by a court of competent jurisdiction or arbitrator to be invalid, illegal, or unenforceable, that provision or part thereof shall be deemed severed from these terms, and the remaining provisions or parts thereof shall continue in full force and effect as if the invalid or unenforceable provision had never been part of the agreement.",
+    "Recovery Impossibility Disclaimer" to
+            "No software can fully erase data on certain hardware (e.g., SSDs with overprovisioning). This tool reduces recoverability, but absolute erasure is not guaranteed.",
 
-    "Governing Law & Jurisdiction" to
-            "These terms shall be governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of laws principles. However, nothing in this clause shall limit any mandatory consumer protection rights that you may have under the laws of your country of residence that cannot be waived by agreement.",
+    "Data Lifecycle Control" to
+            "You can pause, resume, or cancel shredding at any time. Cancelled operations are still followed by buffer and state cleanup to maintain privacy.",
 
-    "Termination of Access" to
-            "We reserve the right to terminate your license and access to this app at any time, without prior notice, if we determine, in our sole discretion, that you have violated any of these terms or engaged in any conduct we deem harmful to the app or other users. Upon termination, you must immediately cease all use of the app and uninstall it from all your devices.",
+    "Build Integrity" to
+            "This app is signed and built using reproducible configurations. If the build is tampered with, the signature will not match the official one.",
 
-    "Entire Agreement" to
-            "This document, encompassing all the above clauses, constitutes the entire and sole agreement between you and the developers concerning the app and supersedes all prior or contemporaneous understandings, agreements, proposals, or communications, whether oral, written, or implied. No external statements, marketing claims, or representations made outside this document shall override these terms unless formally amended in writing by the developers.",
+    "Platform Limitations" to
+            "Due to Android's scoped storage model, shredding access is limited to files selected via SAF or within granted sandbox scope.",
+
+    "Update Policy" to
+            "Updates may introduce new patterns, optimizations, or stricter validation. No automatic telemetry or remote disabling is implemented or planned.",
+
+    "Fallback Handling" to
+            "If shredding fails mid-process, the app leaves behind a partially-overwritten file and logs an error. Manual deletion may be necessary.",
 
     "Version" to
-           "1.0.0 "
+            "1.0.0 (Core: AES-256, Dual-Buffer, Verify Rate: 10%, Final Flush Enabled, Adaptive Write)"
 )
+
 
 @Composable
 fun AboutScreen() {
-    var visible by remember { mutableStateOf(false) }
+    // V- Get LocalUriHandler instance
+    val uriHandler = LocalUriHandler.current
 
-    LaunchedEffect(Unit) {
-        delay(50) // Slight delay for the animation to be noticeable
-        visible = true
+    // V- Prepare the annotated string for the link
+    val annotatedLinkString = buildAnnotatedString {
+        val fullText = "Check our Terms and Privacy Policy on our website : impom.github.io/shreditapp"
+        val linkText = "impom.github.io/shreditapp"
+        val urlToOpen = "https://impom.github.io/shreditapp" // Ensure it has https://
+
+        val startIndex = fullText.indexOf(linkText)
+        if (startIndex == -1) { // Fallback if linkText is not found
+            append(fullText)
+            return@buildAnnotatedString
+        }
+        val endIndex = startIndex + linkText.length
+
+        append(fullText.substring(0, startIndex)) // Text before the link
+
+        // V- Push annotation for the link part
+        pushStringAnnotation(tag = "URL", annotation = urlToOpen)
+        withStyle(
+            style = SpanStyle(
+                color = MaterialTheme.colorScheme.primary, // Or your preferred link color
+                textDecoration = TextDecoration.Underline
+            )
+        ) {
+            append(fullText.substring(startIndex, endIndex)) // The link text itself
+        }
+        pop() // Pop the annotation
+
+        append(fullText.substring(endIndex)) // Text after the link
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background) // Flat background
-            .padding(16.dp) // Consistent padding
-            .verticalScroll(rememberScrollState())
-            .alpha(if (visible) 1f else 0f), // Apply alpha for fade-in
+            .background(MaterialTheme.colorScheme.background)
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(30.dp))
+        Icon(
+            imageVector = Icons.Filled.Security,
+            contentDescription = "Security icon",
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .size(50.dp)
+                .padding(bottom = 16.dp)
+        )
 
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(delayMillis = 100)) + slideInVertically(initialOffsetY = { it / 2 }, animationSpec = androidx.compose.animation.core.tween(delayMillis = 100))
-        ) {
-            Text(
-                text = "🔒",
-                fontSize = 50.sp, // Slightly smaller emoji for a cleaner look
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
-        }
-
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(delayMillis = 200)) + slideInVertically(initialOffsetY = { it / 2 }, animationSpec = androidx.compose.animation.core.tween(delayMillis = 200))
-        ) {
-            Text(
-                text = "Shred It",
-                style = MaterialTheme.typography.headlineLarge, // Use MaterialTheme typography
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-
-        AnimatedVisibility(
-            visible = visible,
-            enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(delayMillis = 300)) + slideInVertically(initialOffsetY = { it / 2 }, animationSpec = androidx.compose.animation.core.tween(delayMillis = 300))
-        ) {
-            Text(
-                text = "Secure File Shredder",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-        }
-
-        // Dynamically generate InfoSections from the infoList
-        infoList.forEachIndexed { index, (title, content) ->
-            // Stagger the animation delay for each card
-            val delayMillis = 400 + (index * 100) // Start at 400ms, add 100ms for each subsequent card
-            AnimatedAboutCard(delay = delayMillis, visible = visible) {
-                InfoSection(title = title, content = content)
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        Spacer(modifier = Modifier.height(30.dp))
-    }
-}
-
-@Composable
-fun AnimatedAboutCard(delay: Int, visible: Boolean, content: @Composable () -> Unit) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(animationSpec = androidx.compose.animation.core.tween(delayMillis = delay)) +
-                slideInHorizontally(initialOffsetX = { -it / 3 }, animationSpec = androidx.compose.animation.core.tween(delayMillis = delay)),
-        exit = fadeOut()
-    ) {
-        FlatCard { // Use the new FlatCard
-            content()
-        }
-    }
-}
-
-
-@Composable
-fun InfoSection(title: String, content: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 16.dp, horizontal = 20.dp) // Adjusted padding
-    ) {
         Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
+            text = "Shred.it",
+            style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 8.dp)
         )
-        Text(
-            text = content,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-            lineHeight = 22.sp
+
+        // V- Replace Text with ClickableText
+        ClickableText(
+            text = annotatedLinkString,
+            style = MaterialTheme.typography.titleMedium.copy( // Apply base style
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            ),
+            modifier = Modifier.padding(bottom = 24.dp),
+            onClick = { offset ->
+                // V- Handle click on the annotated part of the text
+                annotatedLinkString.getStringAnnotations(tag = "URL", start = offset, end = offset)
+                    .firstOrNull()?.let { annotation ->
+                        uriHandler.openUri(annotation.item) // Open the URL
+                    }
+            }
         )
+
+        // Dynamically generate InfoSections from the infoList
+        infoList.forEach { (title, content) ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            ) {
+                InfoSection(title = title, content = content)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-// Reusable FlatCard (can be moved to a common ui components file)
+// InfoSection now manages its own expanded state and includes the dropdown icon
 @Composable
-fun FlatCard(
-    modifier: Modifier = Modifier,
-    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant, // Flatter color
-    content: @Composable () -> Unit
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth(),
-        shape = RoundedCornerShape(8.dp), // Less rounded for a flatter feel
-        color = backgroundColor,
-        tonalElevation = 0.dp, // No shadow for flat look
-        // border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)) // Optional: subtle border
+fun InfoSection(title: String, content: String) {
+    var expanded by remember { mutableStateOf(false) } // State for each info section
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { expanded = !expanded } // Make the whole section header clickable
+            .padding(horizontal = 20.dp, vertical = 16.dp) // Original padding maintained for the clickable area
     ) {
-        content()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween // Space out title and icon
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.weight(1f) // Give text weight to push icon to end
+            )
+            Spacer(modifier = Modifier.width(8.dp)) // Small space between text and icon
+            Icon(
+                imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                contentDescription = if (expanded) "Collapse" else "Expand",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp) // Standard icon size
+            )
+        }
+
+        // Animated visibility for the content
+        AnimatedVisibility(
+            visible = expanded,
+            enter = expandVertically(expandFrom = Alignment.Top),
+            exit = shrinkVertically(shrinkTowards = Alignment.Top)
+        ) {
+            Column { // Use a Column here to apply padding to the content itself
+                Spacer(modifier = Modifier.height(8.dp)) // Spacer between title and content when expanded
+                Text(
+                    text = content,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    lineHeight = 22.sp
+                )
+            }
+        }
     }
 }
