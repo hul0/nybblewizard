@@ -1,4 +1,4 @@
-package com.republicwing.bufferwing.app.reusable
+package com.impom.nybblewizard.app.reusable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column

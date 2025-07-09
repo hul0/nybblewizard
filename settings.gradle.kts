@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Buffer Wing"
+rootProject.name = "Nybble Wizard"
 include(":app")

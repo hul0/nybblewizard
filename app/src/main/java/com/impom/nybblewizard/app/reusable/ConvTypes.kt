@@ -1,4 +1,4 @@
-package com.republicwing.bufferwing.core
+package com.impom.nybblewizard.core
 
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color

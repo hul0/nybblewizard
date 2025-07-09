@@ -1,4 +1,4 @@
-package com.republicwing.bufferwing.core
+package com.impom.nybblewizard.core
 
 import android.annotation.SuppressLint
 import android.content.Context

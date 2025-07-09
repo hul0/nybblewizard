@@ -1,4 +1,4 @@
-package com.republicwing.bufferwing
+package com.impom.nybblewizard
 
 import org.junit.Test
 

@@ -1,15 +1,15 @@
-package com.republicwing.bufferwing.app.viewmodel
+package com.impom.nybblewizard.app.viewmodel
 
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.republicwing.bufferwing.core.FileInfo
-import com.republicwing.bufferwing.core.FileShredderCore
-import com.republicwing.bufferwing.core.LogEntry
-import com.republicwing.bufferwing.core.ShredderProgress
-import com.republicwing.bufferwing.core.ShredderSettings
-import com.republicwing.bufferwing.core.ShredderState
+import com.impom.nybblewizard.core.FileInfo
+import com.impom.nybblewizard.core.FileShredderCore
+import com.impom.nybblewizard.core.LogEntry
+import com.impom.nybblewizard.core.ShredderProgress
+import com.impom.nybblewizard.core.ShredderSettings
+import com.impom.nybblewizard.core.ShredderState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow

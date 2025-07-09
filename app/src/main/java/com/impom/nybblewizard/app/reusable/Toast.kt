@@ -1,4 +1,4 @@
-package com.republicwing.bufferwing.app.reusable
+package com.impom.nybblewizard.app.reusable
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring

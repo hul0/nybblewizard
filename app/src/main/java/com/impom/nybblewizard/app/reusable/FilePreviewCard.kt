@@ -1,4 +1,4 @@
-package com.republicwing.bufferwing.app.reusable
+package com.impom.nybblewizard.app.reusable
 
 import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
-import com.republicwing.bufferwing.core.FileInfo
+import com.impom.nybblewizard.core.FileInfo
 
 @Composable
 fun FilePreviewCard(

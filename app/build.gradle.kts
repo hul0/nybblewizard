@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "com.republicwing.bufferwing"
+    namespace = "com.impom.nybblewizard"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.republicwing.bufferwing"
+        applicationId = "com.impom.nybblewizard"
         minSdk = 28 // Good choice for modern Android, reduces backward compatibility issues
         targetSdk = 36
-        versionCode = 4
-        versionName = "2.0"
+        versionCode = 1
+        versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

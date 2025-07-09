@@ -1,5 +1,6 @@
-package com.republicwing.bufferwing.app
+package com.impom.nybblewizard.app
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -41,16 +42,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.exyte.animatednavbar.AnimatedNavigationBar
-import com.republicwing.bufferwing.app.reusable.SettingsDialog
-import com.republicwing.bufferwing.app.reusable.TopNavBar
-import com.republicwing.bufferwing.app.screens.AboutScreen
-import com.republicwing.bufferwing.app.screens.ConversionScreen // Import ConversionScreen
-import com.republicwing.bufferwing.app.screens.FAQScreen
-import com.republicwing.bufferwing.app.screens.FileShredderScreen
-import com.republicwing.bufferwing.app.screens.SupportScreen
-import com.republicwing.bufferwing.app.theme.ShredItTheme
-import com.republicwing.bufferwing.app.theme.PaletteManager
-import com.republicwing.bufferwing.app.viewmodel.FileShredderViewModel
+import com.impom.nybblewizard.app.reusable.SettingsDialog
+import com.impom.nybblewizard.app.reusable.TopNavBar
+import com.impom.nybblewizard.app.screens.AboutScreen
+import com.impom.nybblewizard.app.screens.ConversionScreen // Import ConversionScreen
+import com.impom.nybblewizard.app.screens.FAQScreen
+import com.impom.nybblewizard.app.screens.FileShredderScreen
+import com.impom.nybblewizard.app.screens.SupportScreen
+import com.impom.nybblewizard.app.theme.ShredItTheme
+import com.impom.nybblewizard.app.theme.PaletteManager
+import com.impom.nybblewizard.app.viewmodel.FileShredderViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +73,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Support : Screen("support", "Support", Icons.Filled.SupportAgent)
 }
 
+@SuppressLint("InvalidColorHexValue")
 @Preview
 @Composable
 fun MainAppScreen(
@@ -140,7 +142,7 @@ fun MainAppScreen(
                 } else {
                     colors.surfaceVariant.copy(alpha = 0.95f)
                 },
-                ballColor = currentScreenPrimaryColor,
+                ballColor = colors.secondary,
                 modifier = Modifier.background(
                     Brush.horizontalGradient(
                         colors = listOf(
