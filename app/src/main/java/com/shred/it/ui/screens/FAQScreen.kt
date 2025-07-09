@@ -52,7 +52,7 @@ data class FAQItem(
 )
 
 @Composable
-fun FAQScreen(innerPadding: PaddingValues) {
+fun FAQScreen() {
     val faqItems = remember {
         listOf(
             FAQItem(1, "What algorithm is used for overwriting?", "A sequence of random data, alternating patterns (0xAA/0x55, 0x55/0xAA), zeros, and ones. The final pass is always zeros with a flush."),

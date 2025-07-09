@@ -15,17 +15,18 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.filled.CleaningServices
 import androidx.compose.material.icons.filled.Policy
 import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.SwapHoriz // Import for ConversionScreen icon
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState // Import SnackbarHostState
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState // Import collectAsState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope // Import rememberCoroutineScope
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -35,7 +36,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.net.toUri
-import androidx.lifecycle.viewmodel.compose.viewModel // Import viewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -43,12 +44,13 @@ import com.exyte.animatednavbar.AnimatedNavigationBar
 import com.shred.it.ui.reusable.SettingsDialog
 import com.shred.it.ui.reusable.TopNavBar
 import com.shred.it.ui.screens.AboutScreen
+import com.shred.it.ui.screens.ConversionScreen // Import ConversionScreen
 import com.shred.it.ui.screens.FAQScreen
 import com.shred.it.ui.screens.FileShredderScreen
 import com.shred.it.ui.screens.SupportScreen
 import com.shred.it.ui.theme.ShredItTheme
 import com.shred.it.ui.theme.PaletteManager
-import com.shred.it.ui.viewmodel.FileShredderViewModel // Import FileShredderViewModel
+import com.shred.it.ui.viewmodel.FileShredderViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,6 +66,7 @@ class MainActivity : ComponentActivity() {
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     object Home : Screen("home", "Shredder", Icons.Filled.CleaningServices)
+    object Converter : Screen("converter", "Converter", Icons.Filled.SwapHoriz) // New Converter Screen
     object About : Screen("about", "About", Icons.Filled.Policy)
     object FAQ : Screen("faq", "FAQ", Icons.AutoMirrored.Filled.HelpOutline)
     object Support : Screen("support", "Support", Icons.Filled.SupportAgent)
@@ -76,7 +79,8 @@ fun MainAppScreen(
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
-    val screens = listOf(Screen.Home, Screen.About, Screen.FAQ, Screen.Support)
+    // Add Converter to the list of screens
+    val screens = listOf(Screen.Home, Screen.Converter, Screen.About, Screen.FAQ, Screen.Support)
 
     val settings by fileShredderViewModel.settings.collectAsState() // Collect settings state
     val snackbarHostState = remember { SnackbarHostState() } // Create SnackbarHostState
@@ -93,6 +97,7 @@ fun MainAppScreen(
     // Dynamic colors based on selection from the current theme's palette
     val screenSpecificPrimaryColors = listOf(
         PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).primary, // For Home
+        PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).tertiary, // For Converter (using tertiary as an example)
         PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).secondary, // For About (using secondary as an example)
         PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).tertiary, // For FAQ (using tertiary as an example)
         PaletteManager.currentPalette.getColors(PaletteManager.isDarkMode).error // For Support (using error as an example, choose appropriate)
@@ -124,7 +129,6 @@ fun MainAppScreen(
                     endY = Float.POSITIVE_INFINITY
                 )
             ),
-        // Add TopNavBar as the topBar of the Scaffold
         topBar = {
             TopNavBar(onSettingsClick = { showSettingsDialog = true })
         },
@@ -151,7 +155,13 @@ fun MainAppScreen(
                 IconButton(
                     onClick = {
                         selectedIndex = 0
-                        navController.navigate(Screen.Home.route)
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     },
                     modifier = Modifier
                         .clip(CircleShape)
@@ -180,11 +190,17 @@ fun MainAppScreen(
                     )
                 }
 
-                // About Button
+                // Converter Button (New)
                 IconButton(
                     onClick = {
                         selectedIndex = 1
-                        navController.navigate(Screen.About.route)
+                        navController.navigate(Screen.Converter.route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     },
                     modifier = Modifier
                         .clip(CircleShape)
@@ -207,17 +223,23 @@ fun MainAppScreen(
                         )
                 ) {
                     Icon(
-                        imageVector = Icons.Filled.Policy,
-                        contentDescription = "About",
+                        imageVector = Icons.Filled.SwapHoriz,
+                        contentDescription = "Converter",
                         tint = if (selectedIndex == 1) screenSpecificPrimaryColors[1] else colors.onSurface
                     )
                 }
 
-                // FAQ Button
+                // About Button
                 IconButton(
                     onClick = {
-                        selectedIndex = 2
-                        navController.navigate(Screen.FAQ.route)
+                        selectedIndex = 2 // Adjusted index due to new Converter screen
+                        navController.navigate(Screen.About.route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     },
                     modifier = Modifier
                         .clip(CircleShape)
@@ -240,17 +262,23 @@ fun MainAppScreen(
                         )
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-                        contentDescription = "FAQ",
+                        imageVector = Icons.Filled.Policy,
+                        contentDescription = "About",
                         tint = if (selectedIndex == 2) screenSpecificPrimaryColors[2] else colors.onSurface
                     )
                 }
 
-                // Support Button
+                // FAQ Button
                 IconButton(
                     onClick = {
-                        selectedIndex = 3
-                        navController.navigate(Screen.Support.route)
+                        selectedIndex = 3 // Adjusted index
+                        navController.navigate(Screen.FAQ.route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     },
                     modifier = Modifier
                         .clip(CircleShape)
@@ -273,9 +301,48 @@ fun MainAppScreen(
                         )
                 ) {
                     Icon(
+                        imageVector = Icons.AutoMirrored.Filled.HelpOutline,
+                        contentDescription = "FAQ",
+                        tint = if (selectedIndex == 3) screenSpecificPrimaryColors[3] else colors.onSurface
+                    )
+                }
+
+                // Support Button
+                IconButton(
+                    onClick = {
+                        selectedIndex = 4 // Adjusted index
+                        navController.navigate(Screen.Support.route) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(
+                            if (selectedIndex == 4) {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        screenSpecificPrimaryColors[4].copy(alpha = 0.3f),
+                                        screenSpecificPrimaryColors[4].copy(alpha = 0.1f)
+                                    )
+                                )
+                            } else {
+                                Brush.radialGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Transparent
+                                    )
+                                )
+                            }
+                        )
+                ) {
+                    Icon(
                         imageVector = Icons.Filled.SupportAgent,
                         contentDescription = "Support",
-                        tint = if (selectedIndex == 3) screenSpecificPrimaryColors[3] else colors.onSurface
+                        tint = if (selectedIndex == 4) screenSpecificPrimaryColors[4] else colors.onSurface
                     )
                 }
             }
@@ -283,7 +350,7 @@ fun MainAppScreen(
     ) { innerPadding ->
         Box(
             modifier = Modifier
-                .padding(innerPadding)
+                .padding(innerPadding) // This padding is essential and correctly placed.
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
@@ -301,14 +368,23 @@ fun MainAppScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 composable(Screen.Home.route) {
-                    FileShredderScreen(innerPadding, fileShredderViewModel) // Pass ViewModel here
+                    // **FIX**: Do NOT pass innerPadding here anymore.
+                    FileShredderScreen(fileShredderViewModel)
                 }
+                composable(Screen.Converter.route) {
+                    ConversionScreen(
+                        onBackClick = { navController.navigateUp() }
+                    )
+                }
+
                 composable(Screen.About.route) {
                     AboutScreen()
                 }
                 composable(Screen.FAQ.route) {
-                    FAQScreen(innerPadding = innerPadding)
+                    // **FIX**: Do NOT pass innerPadding here either.
+                    FAQScreen() // You will need to update FAQScreen to remove the innerPadding parameter as well.
                 }
+
                 composable(Screen.Support.route) {
                     SupportScreen(
                         onBackClick = { navController.navigateUp() },
@@ -385,4 +461,5 @@ fun MainAppScreen(
                 onDismiss = { showSettingsDialog = false }
             )
         }
-    }}
+    }
+}
