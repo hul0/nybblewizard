@@ -1,4 +1,4 @@
-package com.shred.it.ui.reusable
+package com.impom.nybblewizard.app.reusable
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -15,7 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import com.shred.it.core.ShredderSettings
+import com.impom.nybblewizard.core.ShredderSettings
 import kotlinx.coroutines.launch
 
 @Composable

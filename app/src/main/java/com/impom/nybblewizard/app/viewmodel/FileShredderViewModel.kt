@@ -1,15 +1,15 @@
-package com.shred.it.ui.viewmodel
+package com.impom.nybblewizard.app.viewmodel
 
 import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.shred.it.core.FileInfo
-import com.shred.it.core.FileShredderCore
-import com.shred.it.core.LogEntry
-import com.shred.it.core.ShredderProgress
-import com.shred.it.core.ShredderSettings
-import com.shred.it.core.ShredderState
+import com.impom.nybblewizard.core.FileInfo
+import com.impom.nybblewizard.core.FileShredderCore
+import com.impom.nybblewizard.core.LogEntry
+import com.impom.nybblewizard.core.ShredderProgress
+import com.impom.nybblewizard.core.ShredderSettings
+import com.impom.nybblewizard.core.ShredderState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow

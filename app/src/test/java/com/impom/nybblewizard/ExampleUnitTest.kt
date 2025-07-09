@@ -1,4 +1,4 @@
-package com.shred.it
+package com.impom.nybblewizard
 
 import org.junit.Test
 

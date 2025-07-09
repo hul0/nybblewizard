@@ -1,4 +1,4 @@
-package com.shred.it.ui.theme
+package com.impom.nybblewizard.app.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography

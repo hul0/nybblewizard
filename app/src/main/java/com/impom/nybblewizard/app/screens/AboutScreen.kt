@@ -1,4 +1,4 @@
-package com.shred.it.ui.screens
+package com.impom.nybblewizard.app.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
@@ -172,7 +172,7 @@ fun AboutScreen() {
         )
 
         Text(
-            text = "Shred.it",
+            text = "Nybble Wizard",
             style = MaterialTheme.typography.headlineLarge,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(bottom = 8.dp)

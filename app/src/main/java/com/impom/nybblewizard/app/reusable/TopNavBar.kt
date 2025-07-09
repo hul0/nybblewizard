@@ -1,4 +1,4 @@
-package com.shred.it.ui.reusable
+package com.impom.nybblewizard.app.reusable
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets // Added import
 import androidx.compose.foundation.layout.WindowInsetsSides // Added import
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.only // Added import
 import androidx.compose.foundation.layout.padding
@@ -38,8 +39,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.shred.it.ui.theme.ColorPalette
-import com.shred.it.ui.theme.PaletteManager // Corrected import
+import androidx.compose.ui.unit.sp
+import com.impom.nybblewizard.app.theme.ColorPalette
+import com.impom.nybblewizard.app.theme.PaletteManager // Corrected import
 
 @Composable
 fun TopNavBar(
@@ -59,11 +61,11 @@ fun TopNavBar(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Shredder",
-            color = colors.primary,
+            text = "Nybble Wizard",
+            color = colors.secondary,
             style = MaterialTheme.typography.displaySmall.copy(
-                fontFamily = FontFamily.SansSerif,
-                fontWeight = FontWeight.ExtraBold
+                fontFamily = FontFamily.Cursive,
+                fontSize = 28.sp
             )
         )
 

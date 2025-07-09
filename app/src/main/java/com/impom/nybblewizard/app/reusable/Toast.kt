@@ -1,4 +1,4 @@
-package com.shred.it.ui.reusable
+package com.impom.nybblewizard.app.reusable
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring

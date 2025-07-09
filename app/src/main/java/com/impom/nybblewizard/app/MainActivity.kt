@@ -1,5 +1,6 @@
-package com.shred.it.ui
+package com.impom.nybblewizard.app
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -41,16 +42,16 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.exyte.animatednavbar.AnimatedNavigationBar
-import com.shred.it.ui.reusable.SettingsDialog
-import com.shred.it.ui.reusable.TopNavBar
-import com.shred.it.ui.screens.AboutScreen
-import com.shred.it.ui.screens.ConversionScreen // Import ConversionScreen
-import com.shred.it.ui.screens.FAQScreen
-import com.shred.it.ui.screens.FileShredderScreen
-import com.shred.it.ui.screens.SupportScreen
-import com.shred.it.ui.theme.ShredItTheme
-import com.shred.it.ui.theme.PaletteManager
-import com.shred.it.ui.viewmodel.FileShredderViewModel
+import com.impom.nybblewizard.app.reusable.SettingsDialog
+import com.impom.nybblewizard.app.reusable.TopNavBar
+import com.impom.nybblewizard.app.screens.AboutScreen
+import com.impom.nybblewizard.app.screens.ConversionScreen // Import ConversionScreen
+import com.impom.nybblewizard.app.screens.FAQScreen
+import com.impom.nybblewizard.app.screens.FileShredderScreen
+import com.impom.nybblewizard.app.screens.SupportScreen
+import com.impom.nybblewizard.app.theme.ShredItTheme
+import com.impom.nybblewizard.app.theme.PaletteManager
+import com.impom.nybblewizard.app.viewmodel.FileShredderViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +73,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     object Support : Screen("support", "Support", Icons.Filled.SupportAgent)
 }
 
+@SuppressLint("InvalidColorHexValue")
 @Preview
 @Composable
 fun MainAppScreen(
@@ -140,7 +142,7 @@ fun MainAppScreen(
                 } else {
                     colors.surfaceVariant.copy(alpha = 0.95f)
                 },
-                ballColor = currentScreenPrimaryColor,
+                ballColor = colors.secondary,
                 modifier = Modifier.background(
                     Brush.horizontalGradient(
                         colors = listOf(

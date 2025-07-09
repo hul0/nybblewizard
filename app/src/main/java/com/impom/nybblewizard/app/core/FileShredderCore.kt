@@ -1,4 +1,4 @@
-package com.shred.it.core
+package com.impom.nybblewizard.core
 
 import android.annotation.SuppressLint
 import android.content.Context

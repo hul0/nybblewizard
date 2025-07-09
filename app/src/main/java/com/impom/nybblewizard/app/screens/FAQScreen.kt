@@ -1,4 +1,4 @@
-package com.shred.it.ui.screens
+package com.impom.nybblewizard.app.screens
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
