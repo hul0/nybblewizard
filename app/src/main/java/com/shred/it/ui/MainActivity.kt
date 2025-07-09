@@ -376,6 +376,7 @@ fun MainAppScreen(
                         onBackClick = { navController.navigateUp() }
                     )
                 }
+
                 composable(Screen.About.route) {
                     AboutScreen()
                 }
