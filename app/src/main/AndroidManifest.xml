@@ -16,7 +16,7 @@
         tools:targetApi="36"> <!-- Set to your highest target API level -->
 
         <activity
-            android:name=".ui.MainActivity"
+            android:name=".app.MainActivity"
             android:exported="true"
             > <!-- Theme can be inherited from application -->
             <intent-filter>

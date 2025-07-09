@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Shred.it"
+rootProject.name = "Buffer Wing"
 include(":app")

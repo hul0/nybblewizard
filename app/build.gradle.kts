@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "com.shred.it"
+    namespace = "com.republicwing.bufferwing"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.shred.it"
+        applicationId = "com.republicwing.bufferwing"
         minSdk = 28 // Good choice for modern Android, reduces backward compatibility issues
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "2.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
