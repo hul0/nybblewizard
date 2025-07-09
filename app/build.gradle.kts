@@ -126,7 +126,7 @@ dependencies {
     // Activity & Animation - ⭐ UPDATE TO LATEST STABLE ⭐
     implementation("androidx.activity:activity-compose:1.9.0") // Latest stable as of current knowledge
     implementation("androidx.compose.animation:animation")
-
+    implementation("com.caverock:androidsvg-aar:1.4")
     // ViewModels in Compose - ⭐ UPDATE TO LATEST STABLE ⭐
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.0") // Latest stable as of current knowledge
 
