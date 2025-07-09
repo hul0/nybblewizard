@@ -1,8 +1,6 @@
 package com.shred.it.ui.screens
 
 import android.annotation.SuppressLint
-import android.content.Context
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -12,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,15 +29,12 @@ import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Loop
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -66,7 +60,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -78,7 +71,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.shred.it.core.LogType
 import com.shred.it.core.ShredderState
 import com.shred.it.ui.reusable.FilePreviewCard // Import the new FilePreviewCard
-import com.shred.it.ui.reusable.SettingRow // Import the new SettingRow
 import com.shred.it.ui.viewmodel.FileShredderViewModel // Import the new ViewModel
 
 import kotlinx.coroutines.launch
@@ -87,7 +79,7 @@ import kotlinx.coroutines.launch
 @SuppressLint("ConfigurationScreenWidthHeight")
 @Composable
 fun FileShredderScreen(
-    innerPadding: PaddingValues, // Accept innerPadding from Scaffold
+    innerPadding: FileShredderViewModel, // Accept innerPadding from Scaffold
     vm: FileShredderViewModel = viewModel()
 ) {
     val scrollState = rememberScrollState()
@@ -102,8 +94,6 @@ fun FileShredderScreen(
     val scope = rememberCoroutineScope()
 
     var showConf by remember { mutableStateOf(false) }
-    // Removed showSet as settings dialog is now handled by MainActivity's TopNavBar
-    // var showSet by remember { mutableStateOf(false) }
     var confStep by remember { mutableIntStateOf(0) }
     var logsExpanded by remember { mutableStateOf(false) }
 
@@ -135,12 +125,13 @@ fun FileShredderScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(innerPadding) // Apply the Scaffold's padding
+            // Apply the Scaffold's padding correctly.
             .verticalScroll(scrollState)
-            .padding(horizontal = contentHorizontalPadding, vertical = contentVerticalPadding) // Apply screen-specific padding
+            // Apply only horizontal padding here to avoid compounding vertical padding.
+            .padding(horizontal = contentHorizontalPadding)
     ) {
-        // --- Header Section REMOVED ---
-        // The header (title "Shredder" and theme/settings toggles) is now handled by TopNavBar in MainActivity.
+        // Spacer to create the desired padding at the top of the content.
+        Spacer(Modifier.height(contentVerticalPadding))
 
         // --- File Selection/Info Card ---
         // Conditionally display FilePreviewCard if a file is selected
@@ -348,11 +339,9 @@ fun FileShredderScreen(
                 }
             }
         }
-        // Spacer(modifier = Modifier.height(24.dp)) // This spacer should be after the entire logs column
 
         // --- Information/Warning Section ---
-        // This section remains here as it's specific to the shredder functionality
-        Surface( // Using Surface for warning card
+        Surface(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             tonalElevation = 3.dp
@@ -372,6 +361,9 @@ fun FileShredderScreen(
                 }
             }
         }
+
+        // Spacer to create the desired padding at the bottom of the content.
+        Spacer(Modifier.height(contentVerticalPadding))
     }
 
 
@@ -416,49 +408,4 @@ fun FileShredderScreen(
             }
         )
     }
-
-    // Removed Settings AlertDialog as it's now handled by MainActivity's TopNavBar
-    // if (showSet) {
-    //     AlertDialog(
-    //         onDismissRequest = { showSet = false },
-    //         title = { Text("SHREDDER SETTINGS", style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.SansSerif)) },
-    //         text = {
-    //             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-    //                 SettingRow(
-    //                     title = "Overwrite Rounds",
-    //                     description = "${set.overwriteRounds}",
-    //                     icon = Icons.Filled.Loop
-    //                 ) {
-    //                     val currentRounds = set.overwriteRounds
-    //                     val nextRounds = when (currentRounds) {
-    //                         1 -> 3; 3 -> 5; 5 -> 7; 7 -> 10; 10 -> 15; else -> 1
-    //                     }
-    //                     vm.updateRounds(nextRounds)
-    //                     scope.launch { snackbarHostState.showSnackbar("Overwrite rounds set to $nextRounds") }
-    //                 }
-    //                 SettingRow(
-    //                     title = "Random Rename File",
-    //                     description = if (set.useRandomRename) "ENABLED" else "DISABLED",
-    //                     icon = Icons.Filled.Edit
-    //                 ) {
-    //                     vm.toggleRename()
-    //                     scope.launch { snackbarHostState.showSnackbar("Random rename ${if (!set.useRandomRename) "enabled" else "disabled"}") }
-    //                 }
-    //                 SettingRow(
-    //                     title = "Verify Overwrites",
-    //                     description = if (set.verifyOverwrites) "ENABLED" else "DISABLED",
-    //                     icon = Icons.Filled.VerifiedUser
-    //                 ) {
-    //                     vm.toggleVerify()
-    //                     scope.launch { snackbarHostState.showSnackbar("Verify overwrites ${if (!set.verifyOverwrites) "enabled" else "disabled"}") }
-    //                 }
-    //             }
-    //         },
-    //         confirmButton = {
-    //             Button(onClick = { showSet = false }) {
-    //                 Text("DONE", style = MaterialTheme.typography.labelLarge.copy(fontFamily = FontFamily.SansSerif))
-    //             }
-    //         }
-    //     )
-    // }
 }

@@ -27,7 +27,7 @@ fun SettingRow(
     TextButton(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        contentPadding = PaddingValues(8.dp)
+        contentPadding = PaddingValues(1.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

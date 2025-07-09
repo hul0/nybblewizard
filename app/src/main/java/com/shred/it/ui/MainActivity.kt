@@ -129,7 +129,6 @@ fun MainAppScreen(
                     endY = Float.POSITIVE_INFINITY
                 )
             ),
-        // Add TopNavBar as the topBar of the Scaffold
         topBar = {
             TopNavBar(onSettingsClick = { showSettingsDialog = true })
         },
@@ -351,7 +350,7 @@ fun MainAppScreen(
     ) { innerPadding ->
         Box(
             modifier = Modifier
-                .padding(innerPadding)
+                .padding(innerPadding) // This padding is essential and correctly placed.
                 .fillMaxSize()
                 .background(
                     Brush.verticalGradient(
@@ -369,9 +368,10 @@ fun MainAppScreen(
                 modifier = Modifier.fillMaxSize()
             ) {
                 composable(Screen.Home.route) {
-                    FileShredderScreen(innerPadding, fileShredderViewModel) // Pass ViewModel here
+                    // **FIX**: Do NOT pass innerPadding here anymore.
+                    FileShredderScreen(fileShredderViewModel)
                 }
-                composable(Screen.Converter.route) { // Corrected: No onConvertClick parameter
+                composable(Screen.Converter.route) {
                     ConversionScreen(
                         onBackClick = { navController.navigateUp() }
                     )
@@ -380,7 +380,8 @@ fun MainAppScreen(
                     AboutScreen()
                 }
                 composable(Screen.FAQ.route) {
-                    FAQScreen(innerPadding = innerPadding)
+                    // **FIX**: Do NOT pass innerPadding here either.
+                    FAQScreen() // You will need to update FAQScreen to remove the innerPadding parameter as well.
                 }
 
                 composable(Screen.Support.route) {
