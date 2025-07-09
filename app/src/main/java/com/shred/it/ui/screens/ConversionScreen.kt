@@ -1,8 +1,6 @@
 package com.shred.it.ui.screens
 
-import android.content.Context
-import android.content.ContentResolver
-import android.content.Intent
+import android.content.*
 import android.net.Uri
 import android.os.Build
 import android.widget.Toast
@@ -12,47 +10,40 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import com.shred.it.core.ConversionCore // Import ConversionCore
-import java.io.File // Still needed for some path operations or defaults
+import kotlinx.coroutines.*
+import com.shred.it.core.ConversionCore
+import java.io.File
 import java.math.BigInteger
 
-// Data class to represent a file category for conversion
 data class FileCategory(
     val title: String,
     val icon: ImageVector,
     val color: Color,
-    val supportedConversions: List<ConversionType>
+    val supportedConversions: List<ConversionType>,
+    val tooltip: String
 )
 
-// Data class to represent a specific conversion type (e.g., PNG to JPEG)
 data class ConversionType(
     val fromFormat: String,
-    val toFormat: String
+    val toFormat: String,
+    val tooltip: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,105 +55,124 @@ fun ConversionScreen(
     val contentResolver = context.contentResolver
     val coroutineScope = rememberCoroutineScope()
 
-    // Animation states
     var isVisible by remember { mutableStateOf(false) }
     var selectedCategory by remember { mutableStateOf<FileCategory?>(null) }
     var selectedConversion by remember { mutableStateOf<ConversionType?>(null) }
-    var isLoading by remember { mutableStateOf(false) } // State for loading indicator
+    var isLoading by remember { mutableStateOf(false) }
 
-    // New states for renaming and folder selection
     var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
     var outputFileName by remember { mutableStateOf("") }
     var outputFolderUri by remember { mutableStateOf<Uri?>(null) }
     var showConfirmationDialog by remember { mutableStateOf(false) }
 
-    // Animated values for header
     val headerScale by animateFloatAsState(
         targetValue = if (isVisible) 1f else 0.8f,
         animationSpec = spring(dampingRatio = 0.6f, stiffness = 300f), label = "headerScale"
     )
 
-    // Animated values for content
     val contentAlpha by animateFloatAsState(
         targetValue = if (isVisible) 1f else 0f,
         animationSpec = tween(1000, delayMillis = 200), label = "contentAlpha"
     )
 
-    // Data for file categories and their supported conversions
     val fileCategories = remember {
         listOf(
             FileCategory(
                 title = "Images",
                 icon = Icons.Default.Image,
-                color = Color(0xFF4CAF50), // Green
+                color = Color(0xFF4CAF50),
+                tooltip = "Convert between various image formats",
                 supportedConversions = listOf(
-                    ConversionType("PNG", "JPEG"),
-                    ConversionType("JPEG", "PNG"),
-                    ConversionType("WEBP", "PNG"),
-                    ConversionType("WEBP", "JPEG"),
-                    ConversionType("GIF", "PNG")
+                    ConversionType("PNG", "JPEG", "Convert PNG to JPEG"),
+                    ConversionType("JPEG", "PNG", "Convert JPEG to PNG"),
+                    ConversionType("WEBP", "PNG", "Convert WEBP to PNG"),
+                    ConversionType("WEBP", "JPEG", "Convert WEBP to JPEG"),
+                    ConversionType("GIF", "PNG", "Convert GIF to PNG"),
+                    ConversionType("BMP", "PNG", "Convert BMP to PNG"),
+                    ConversionType("TIFF", "JPEG", "Convert TIFF to JPEG"),
+                    ConversionType("SVG", "PNG", "Convert SVG to PNG"),
+                    ConversionType("HEIC", "JPEG", "Convert HEIC to JPEG"),
+                    ConversionType("AVIF", "PNG", "Convert AVIF to PNG")
                 )
             ),
-            // Document, Audio, Video categories are placeholders for future implementation
             FileCategory(
                 title = "Documents",
                 icon = Icons.Default.Description,
-                color = Color(0xFF2196F3), // Blue
+                color = Color(0xFF2196F3),
+                tooltip = "Convert between document formats like PDF, DOCX, TXT",
                 supportedConversions = listOf(
-                    ConversionType("PDF", "DOCX"),
-                    ConversionType("DOCX", "PDF"),
-                    ConversionType("TXT", "PDF"),
-                    ConversionType("PDF", "TXT")
+                    ConversionType("PDF", "DOCX", "Convert PDF to DOCX"),
+                    ConversionType("DOCX", "PDF", "Convert DOCX to PDF"),
+                    ConversionType("TXT", "PDF", "Convert TXT to PDF"),
+                    ConversionType("PDF", "TXT", "Convert PDF to TXT"),
+                    ConversionType("XLSX", "PDF", "Convert XLSX to PDF"),
+                    ConversionType("PPTX", "PDF", "Convert PPTX to PDF"),
+                    ConversionType("HTML", "PDF", "Convert HTML to PDF"),
+                    ConversionType("EPUB", "PDF", "Convert EPUB to PDF"),
+                    ConversionType("MOBI", "PDF", "Convert MOBI to PDF"),
+                    ConversionType("RTF", "PDF", "Convert RTF to PDF")
                 )
             ),
             FileCategory(
                 title = "Audio",
                 icon = Icons.Default.Audiotrack,
-                color = Color(0xFFFFC107), // Amber
+                color = Color(0xFFFFC107),
+                tooltip = "Convert between audio formats like MP3, WAV, FLAC",
                 supportedConversions = listOf(
-                    ConversionType("MP3", "WAV"),
-                    ConversionType("WAV", "MP3"),
-                    ConversionType("FLAC", "MP3")
+                    ConversionType("MP3", "WAV", "Convert MP3 to WAV"),
+                    ConversionType("WAV", "MP3", "Convert WAV to MP3"),
+                    ConversionType("FLAC", "MP3", "Convert FLAC to MP3"),
+                    ConversionType("AAC", "MP3", "Convert AAC to MP3"),
+                    ConversionType("OGG", "MP3", "Convert OGG to MP3"),
+                    ConversionType("M4A", "MP3", "Convert M4A to MP3"),
+                    ConversionType("WMA", "MP3", "Convert WMA to MP3"),
+                    ConversionType("AIFF", "MP3", "Convert AIFF to MP3"),
+                    ConversionType("ALAC", "MP3", "Convert ALAC to MP3"),
+                    ConversionType("OPUS", "MP3", "Convert OPUS to MP3")
                 )
             ),
             FileCategory(
                 title = "Video",
                 icon = Icons.Default.Videocam,
-                color = Color(0xFF9C27B0), // Purple
+                color = Color(0xFF9C27B0),
+                tooltip = "Convert between video formats like MP4, AVI, MKV",
                 supportedConversions = listOf(
-                    ConversionType("MP4", "AVI"),
-                    ConversionType("AVI", "MP4"),
-                    ConversionType("MKV", "MP4")
+                    ConversionType("MP4", "AVI", "Convert MP4 to AVI"),
+                    ConversionType("AVI", "MP4", "Convert AVI to MP4"),
+                    ConversionType("MKV", "MP4", "Convert MKV to MP4"),
+                    ConversionType("MOV", "MP4", "Convert MOV to MP4"),
+                    ConversionType("WMV", "MP4", "Convert WMV to MP4"),
+                    ConversionType("FLV", "MP4", "Convert FLV to MP4"),
+                    ConversionType("WEBM", "MP4", "Convert WEBM to MP4"),
+                    ConversionType("MPEG", "MP4", "Convert MPEG to MP4"),
+                    ConversionType("3GP", "MP4", "Convert 3GP to MP4"),
+                    ConversionType("TS", "MP4", "Convert TS to MP4")
                 )
             )
         )
     }
 
-    // Launcher for picking an input image file
-    val pickImageLauncher = rememberLauncherForActivityResult(
+    val pickFileLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         selectedFileUri = uri
-        // Automatically set a default output file name based on input and selected conversion
         uri?.lastPathSegment?.let { originalName ->
             val baseName = originalName.substringBeforeLast('.', originalName)
             selectedConversion?.let { conv ->
                 outputFileName = "${baseName}_converted.${conv.toFormat.lowercase()}"
             } ?: run {
-                outputFileName = "${baseName}_converted" // Fallback if no conversion selected yet
+                outputFileName = "${baseName}_converted"
             }
         } ?: run {
             outputFileName = ""
         }
     }
 
-    // Launcher for picking an output folder (directory)
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
         outputFolderUri = uri
         if (uri != null) {
-            // Persist permission for this URI
             val takeFlags: Int = Intent.FLAG_GRANT_READ_URI_PERMISSION or
                     Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             context.contentResolver.takePersistableUriPermission(uri, takeFlags)
@@ -177,7 +187,6 @@ fun ConversionScreen(
         isVisible = true
     }
 
-    // Function to perform the actual conversion
     val performConversion: () -> Unit = {
         selectedFileUri?.let { inputUri ->
             selectedConversion?.let { conversion ->
@@ -187,14 +196,13 @@ fun ConversionScreen(
                         return@let
                     }
 
-                    // Check if the selected category is "Images" and if the Android version supports ImageDecoder
                     if (selectedCategory?.title == "Images" && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         isLoading = true
                         coroutineScope.launch {
                             val targetFormat = ConversionCore.getCompressFormatFromString(conversion.toFormat)
                             if (targetFormat != null) {
                                 val outputUri = ConversionCore.convertImageFile(
-                                    context = context, // Pass context
+                                    context = context,
                                     inputUri = inputUri,
                                     outputFolderUri = outputFolder,
                                     outputFileName = outputFileName,
@@ -221,9 +229,8 @@ fun ConversionScreen(
                 } ?: Toast.makeText(context, "Please select a save folder.", Toast.LENGTH_SHORT).show()
             } ?: Toast.makeText(context, "Please select a conversion type first.", Toast.LENGTH_SHORT).show()
         } ?: Toast.makeText(context, "Please select an input file first.", Toast.LENGTH_SHORT).show()
-        showConfirmationDialog = false // Dismiss dialog after initiating conversion
+        showConfirmationDialog = false
     }
-
 
     Box(
         modifier = Modifier
@@ -242,10 +249,9 @@ fun ConversionScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .alpha(contentAlpha),
-            verticalArrangement = Arrangement.spacedBy(24.dp),
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // Header Section
             item {
                 Column(
                     modifier = Modifier
@@ -253,18 +259,14 @@ fun ConversionScreen(
                         .scale(headerScale),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Top App Bar
-
-
-                    // Hero Section
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(180.dp),
+                            .height(150.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer
                         ),
-                        shape = RoundedCornerShape(24.dp)
+                        shape = RoundedCornerShape(20.dp)
                     ) {
                         Box(
                             modifier = Modifier
@@ -276,29 +278,29 @@ fun ConversionScreen(
                                             MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
                                             Color.Transparent
                                         ),
-                                        radius = 800f
+                                        radius = 700f
                                     )
                                 )
                         ) {
                             Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(24.dp),
+                                    .padding(20.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.SwapHoriz,
                                     contentDescription = null,
-                                    modifier = Modifier.size(48.dp),
+                                    modifier = Modifier.size(40.dp),
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer
                                 )
 
-                                Spacer(modifier = Modifier.height(16.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
 
                                 Text(
                                     text = "Convert Your Files Easily",
-                                    style = MaterialTheme.typography.headlineLarge,
+                                    style = MaterialTheme.typography.headlineMedium,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                                     textAlign = TextAlign.Center
@@ -309,19 +311,18 @@ fun ConversionScreen(
                 }
             }
 
-            // Category Selection Section
             item {
                 Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
+                            .padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "Select Category",
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -330,15 +331,15 @@ fun ConversionScreen(
                             imageVector = Icons.Default.Category,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp), // Reduced spacing
-                        contentPadding = PaddingValues(horizontal = 8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
                         items(fileCategories) { category ->
                             CategoryCard(
@@ -346,9 +347,9 @@ fun ConversionScreen(
                                 isSelected = selectedCategory == category,
                                 onClick = {
                                     selectedCategory = category
-                                    selectedConversion = null // Reset conversion type on category change
-                                    selectedFileUri = null // Reset selected file
-                                    outputFileName = "" // Reset output file name
+                                    selectedConversion = null
+                                    selectedFileUri = null
+                                    outputFileName = ""
                                 }
                             )
                         }
@@ -356,20 +357,19 @@ fun ConversionScreen(
                 }
             }
 
-            // Conversion Type Selection Section
             selectedCategory?.let { category ->
                 item {
                     Column {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 8.dp),
+                                .padding(horizontal = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = "Select Conversion Type",
-                                style = MaterialTheme.typography.headlineSmall,
+                                style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
@@ -378,15 +378,15 @@ fun ConversionScreen(
                                 imageVector = Icons.Default.Transform,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
                         LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp), // Reduced spacing
-                            contentPadding = PaddingValues(horizontal = 8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
                         ) {
                             items(category.supportedConversions) { conversion ->
                                 ConversionTypeCard(
@@ -394,7 +394,6 @@ fun ConversionScreen(
                                     isSelected = selectedConversion == conversion,
                                     onClick = {
                                         selectedConversion = conversion
-                                        // Update default output file name if a file is already selected
                                         selectedFileUri?.lastPathSegment?.let { originalName ->
                                             val baseName = originalName.substringBeforeLast('.', originalName)
                                             outputFileName = "${baseName}_converted.${conversion.toFormat.lowercase()}"
@@ -407,19 +406,18 @@ fun ConversionScreen(
                 }
             }
 
-            // Input File Selection Section
             item {
                 Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
+                            .padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "Input File",
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -428,18 +426,18 @@ fun ConversionScreen(
                             imageVector = Icons.Default.FileUpload,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
                                 if (selectedCategory?.title == "Images" && selectedConversion != null) {
-                                    pickImageLauncher.launch("image/*")
+                                    pickFileLauncher.launch("image/*")
                                 } else if (selectedCategory == null) {
                                     Toast.makeText(context, "Please select a category first.", Toast.LENGTH_SHORT).show()
                                 } else if (selectedConversion == null) {
@@ -451,12 +449,12 @@ fun ConversionScreen(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         ),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -467,10 +465,10 @@ fun ConversionScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = selectedFileUri?.lastPathSegment ?: "No file selected",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                 )
                             }
@@ -478,26 +476,25 @@ fun ConversionScreen(
                                 imageVector = Icons.Default.FolderOpen,
                                 contentDescription = "Select File",
                                 tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
             }
 
-            // Output Settings Section (New Feature)
             item {
                 Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
+                            .padding(horizontal = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "Output Settings",
-                            style = MaterialTheme.typography.headlineSmall,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
@@ -506,13 +503,12 @@ fun ConversionScreen(
                             imageVector = Icons.Default.Settings,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Output File Name Input
                     OutlinedTextField(
                         value = outputFileName,
                         onValueChange = { outputFileName = it },
@@ -527,22 +523,21 @@ fun ConversionScreen(
                         )
                     )
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Save Location Selection
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { folderPickerLauncher.launch(Uri.EMPTY) }, // Uri.EMPTY is a placeholder, actual URI doesn't matter for OpenDocumentTree
+                            .clickable { folderPickerLauncher.launch(Uri.EMPTY) },
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
                         ),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = RoundedCornerShape(12.dp)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
+                                .padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -553,10 +548,10 @@ fun ConversionScreen(
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
                                 )
-                                Spacer(modifier = Modifier.height(4.dp))
+                                Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = outputFolderUri?.path ?: "Select folder",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
                                 )
                             }
@@ -564,20 +559,19 @@ fun ConversionScreen(
                                 imageVector = Icons.Default.FolderShared,
                                 contentDescription = "Select Folder",
                                 tint = MaterialTheme.colorScheme.secondary,
-                                modifier = Modifier.size(24.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
                 }
             }
 
-            // Convert Button Section
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
                     Button(
                         onClick = {
                             if (selectedFileUri == null) {
@@ -589,35 +583,34 @@ fun ConversionScreen(
                             } else if (outputFolderUri == null) {
                                 Toast.makeText(context, "Please select a save location.", Toast.LENGTH_SHORT).show()
                             } else {
-                                showConfirmationDialog = true // Show confirmation dialog
+                                showConfirmationDialog = true
                             }
                         },
-                        enabled = !isLoading, // Disable button while loading
+                        enabled = !isLoading,
                         modifier = Modifier
                             .fillMaxWidth(0.8f)
-                            .height(56.dp),
-                        shape = RoundedCornerShape(16.dp),
+                            .height(50.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary
                         )
                     ) {
                         if (isLoading) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary)
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(24.dp))
                         } else {
                             Text(
                                 text = "Convert File",
-                                style = MaterialTheme.typography.titleLarge,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
         }
 
-        // Confirmation Dialog (New Feature)
         if (showConfirmationDialog) {
             AlertDialog(
                 onDismissRequest = { showConfirmationDialog = false },
@@ -631,7 +624,7 @@ fun ConversionScreen(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = performConversion) { // Call performConversion on confirm
+                    TextButton(onClick = performConversion) {
                         Text("Confirm")
                     }
                 },
@@ -645,6 +638,7 @@ fun ConversionScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoryCard(
     category: FileCategory,
@@ -652,65 +646,77 @@ fun CategoryCard(
     onClick: () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
+    val tooltipState = rememberTooltipState() // Initialize TooltipState
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
         animationSpec = spring(dampingRatio = 0.6f), label = "categoryCardScale"
     )
 
-    Card(
-        modifier = Modifier
-            .width(120.dp) // Reduced width
-            .height(100.dp) // Reduced height
-            .scale(scale)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onTap = { onClick() }
-                )
-            },
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected)
-                category.color.copy(alpha = 0.1f)
-            else
-                MaterialTheme.colorScheme.surface
-        ),
-        shape = RoundedCornerShape(16.dp),
-        border = if (isSelected)
-            BorderStroke(2.dp, category.color)
-        else null
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            PlainTooltip {
+                Text(category.tooltip)
+            }
+        },
+        state = tooltipState // Pass the TooltipState here
     ) {
-        Column(
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp), // Adjusted padding
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .width(100.dp)
+                .height(80.dp)
+                .scale(scale)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            tryAwaitRelease()
+                            isPressed = false
+                        },
+                        onTap = { onClick() }
+                    )
+                },
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected)
+                    category.color.copy(alpha = 0.1f)
+                else
+                    MaterialTheme.colorScheme.surface
+            ),
+            shape = RoundedCornerShape(12.dp),
+            border = if (isSelected)
+                BorderStroke(2.dp, category.color)
+            else null
         ) {
-            Icon(
-                imageVector = category.icon,
-                contentDescription = null,
-                tint = category.color,
-                modifier = Modifier.size(28.dp) // Adjusted icon size
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    imageVector = category.icon,
+                    contentDescription = null,
+                    tint = category.color,
+                    modifier = Modifier.size(24.dp)
+                )
 
-            Spacer(modifier = Modifier.height(4.dp)) // Adjusted spacing
+                Spacer(modifier = Modifier.height(4.dp))
 
-            Text(
-                text = category.title,
-                style = MaterialTheme.typography.titleSmall, // Kept titleSmall for readability
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
+                Text(
+                    text = category.title,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConversionTypeCard(
     conversion: ConversionType,
@@ -718,59 +724,70 @@ fun ConversionTypeCard(
     onClick: () -> Unit
 ) {
     var isPressed by remember { mutableStateOf(false) }
+    val tooltipState = rememberTooltipState() // Initialize TooltipState
 
     val scale by animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1f,
         animationSpec = spring(dampingRatio = 0.6f), label = "conversionTypeCardScale"
     )
 
-    Card(
-        modifier = Modifier
-            .width(140.dp) // Reduced width
-            .height(80.dp) // Reduced height
-            .scale(scale)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        isPressed = true
-                        tryAwaitRelease()
-                        isPressed = false
-                    },
-                    onTap = { onClick() }
-                )
-            },
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected)
-                MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
-            else
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        ),
-        shape = RoundedCornerShape(16.dp),
-        border = if (isSelected)
-            BorderStroke(2.dp, MaterialTheme.colorScheme.secondary)
-        else null
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = {
+            PlainTooltip {
+                Text(conversion.tooltip)
+            }
+        },
+        state = tooltipState // Pass the TooltipState here
     ) {
-        Column(
+        Card(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp), // Adjusted padding
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .width(120.dp)
+                .height(70.dp)
+                .scale(scale)
+                .pointerInput(Unit) {
+                    detectTapGestures(
+                        onPress = {
+                            isPressed = true
+                            tryAwaitRelease()
+                            isPressed = false
+                        },
+                        onTap = { onClick() }
+                    )
+                },
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected)
+                    MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f)
+                else
+                    MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ),
+            shape = RoundedCornerShape(12.dp),
+            border = if (isSelected)
+                BorderStroke(2.dp, MaterialTheme.colorScheme.secondary)
+            else null
         ) {
-            Text(
-                text = "${conversion.fromFormat} to ${conversion.toFormat}",
-                style = MaterialTheme.typography.bodyLarge, // Changed to bodyLarge for better fit
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(2.dp)) // Adjusted spacing
-            Icon(
-                imageVector = Icons.Default.ArrowForward,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.size(20.dp) // Adjusted icon size
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "${conversion.fromFormat} to ${conversion.toFormat}",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }
