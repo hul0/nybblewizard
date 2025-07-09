@@ -1,160 +1,138 @@
 package com.shred.it.core
 
 import android.content.ContentResolver
-import android.content.Context // Import Context
+import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
-import androidx.documentfile.provider.DocumentFile // Import DocumentFile
-import java.io.ByteArrayOutputStream
-import java.io.FileOutputStream // Keep for potential direct file writing, though DocumentFile handles streams
 
 /**
- * Object containing core conversion logic for the File Converter app.
- * Currently supports bitmap image conversions.
+ * Central object for orchestrating various file conversions.
+ * It delegates conversion tasks to specific conversion modules (ImgConv, VidConv, etc.).
  */
 object ConversionCore {
 
     private const val TAG = "ConversionCore"
 
     /**
-     * Converts a given bitmap to a specified image format (JPEG, PNG, WEBP).
+     * Initiates an image file conversion.
+     * Delegates the call to ImgConv.
      *
-     * @param bitmap The input Bitmap to convert.
-     * @param targetFormat The desired output format (e.g., Bitmap.CompressFormat.JPEG, Bitmap.CompressFormat.PNG, Bitmap.CompressFormat.WEBP).
-     * @param quality The compression quality for formats that support it (0-100).
-     * @return A ByteArray containing the converted image data, or null if conversion fails.
-     */
-    fun convertBitmapToByteArray(
-        bitmap: Bitmap,
-        targetFormat: Bitmap.CompressFormat,
-        quality: Int = 90
-    ): ByteArray? {
-        val outputStream = ByteArrayOutputStream()
-        return try {
-            bitmap.compress(targetFormat, quality, outputStream)
-            outputStream.toByteArray()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error compressing bitmap to $targetFormat", e)
-            null
-        } finally {
-            outputStream.close()
-        }
-    }
-
-    /**
-     * Converts an image from one format to another by decoding to Bitmap and re-encoding.
-     * This function now saves the output to a user-selected directory URI using DocumentFile.
-     *
-     * @param context The application context, required for DocumentFile operations.
+     * @param context The application context.
      * @param inputUri The Uri of the input image file.
-     * @param outputFolderUri The Uri of the directory where the converted file should be saved (obtained from ACTION_OPEN_DOCUMENT_TREE).
-     * @param outputFileName The desired name for the output file (e.g., "converted_image.jpeg").
-     * @param targetFormat The desired output format (e.g., Bitmap.CompressFormat.JPEG, Bitmap.CompressFormat.PNG, Bitmap.CompressFormat.WEBP).
-     * @param quality The compression quality for formats that support it (0-100).
-     * @param contentResolver The ContentResolver to resolve the input Uri and open output streams.
-     * @return The Uri of the saved output file, or null if conversion fails.
+     * @param outputFolderUri The Uri of the directory where the converted file should be saved.
+     * @param outputFileName The desired name for the output file.
+     * @param targetFormat The desired output format (e.g., "JPEG", "PNG").
+     * @param quality The compression quality (0-100), primarily for lossy image formats.
+     * @param contentResolver The ContentResolver instance.
+     * @return The Uri of the newly created converted file, or null if the conversion fails.
      */
-     // ImageDecoder is available from API 28 (P)
-    fun convertImageFile(
-        context: Context, // Added Context parameter
+    @RequiresApi(Build.VERSION_CODES.P)
+    suspend fun convertImageFile(
+        context: Context,
         inputUri: Uri,
-        outputFolderUri: Uri, // Changed from File to Uri
+        outputFolderUri: Uri,
         outputFileName: String,
-        targetFormat: Bitmap.CompressFormat,
-        quality: Int = 90,
+        targetFormat: String,
+        quality: Int,
         contentResolver: ContentResolver
     ): Uri? {
-        var bitmap: Bitmap? = null
-        try {
-            // Decode the image into a Bitmap
-            bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val source = ImageDecoder.createSource(contentResolver, inputUri)
-                ImageDecoder.decodeBitmap(source) { decoder, info, source ->
-                    decoder.isMutableRequired = true // If you need a mutable bitmap
-                }
-            } else {
-                // For older APIs, use BitmapFactory (though this function is @RequiresApi P)
-                contentResolver.openInputStream(inputUri)?.use { inputStream ->
-                    BitmapFactory.decodeStream(inputStream)
-                }
-            }
-
-            bitmap ?: run {
-                Log.e(TAG, "Failed to decode bitmap from input Uri: $inputUri")
-                return null
-            }
-
-            // Convert the bitmap to the target format byte array
-            val convertedByteArray = convertBitmapToByteArray(bitmap, targetFormat, quality)
-            convertedByteArray ?: run {
-                Log.e(TAG, "Failed to convert bitmap to byte array for target format: $targetFormat")
-                return null
-            }
-
-            // --- New logic for saving to user-selected directory URI using DocumentFile ---
-            val pickedDir = DocumentFile.fromTreeUri(context, outputFolderUri)
-            if (pickedDir == null || !pickedDir.isDirectory) {
-                Log.e(TAG, "Invalid output folder URI or not a directory: $outputFolderUri")
-                return null
-            }
-
-            // Determine the MIME type for the new file
-            val mimeType = "image/${getFileExtension(targetFormat)}"
-            val newFile = pickedDir.createFile(mimeType, outputFileName) // Create file in the selected directory
-
-            if (newFile == null) {
-                Log.e(TAG, "Failed to create new file in directory: ${pickedDir.uri}")
-                return null
-            }
-
-            // Open output stream and write the converted data
-            contentResolver.openOutputStream(newFile.uri)?.use { fos ->
-                fos.write(convertedByteArray)
-            } ?: run {
-                Log.e(TAG, "Failed to open output stream for file: ${newFile.uri}")
-                return null
-            }
-
-            Log.i(TAG, "Successfully converted and saved file to: ${newFile.uri}")
-            return newFile.uri
-
-        } catch (e: Exception) {
-            Log.e(TAG, "Error converting image file: $inputUri to $outputFileName", e)
-            return null
-        } finally {
-            bitmap?.recycle() // Recycle the bitmap if it's no longer needed
+        val bitmapTargetFormat = ImgConv.getCompressFormatFromString(targetFormat)
+        return if (bitmapTargetFormat != null) {
+            ImgConv.convertImageFile(
+                context,
+                inputUri,
+                outputFolderUri,
+                outputFileName,
+                bitmapTargetFormat,
+                quality,
+                contentResolver
+            )
+        } else {
+            Log.e(TAG, "Unsupported image target format: $targetFormat")
+            null
         }
     }
 
     /**
-     * Determines the appropriate file extension for a given Bitmap.CompressFormat.
+     * Initiates a video file conversion.
+     * Delegates the call to VidConv.
      *
-     * @param format The Bitmap.CompressFormat.
-     * @return The corresponding file extension (e.g., "jpeg", "png", "webp").
+     * @param context The application context.
+     * @param inputUri The Uri of the input video file.
+     * @param outputFolderUri The Uri of the directory where the converted file should be saved.
+     * @param outputFileName The desired name for the output file.
+     * @param targetFormat The desired output format (e.g., "MP4", "AVI").
+     * @param contentResolver The ContentResolver instance.
+     * @return The Uri of the newly created converted file, or null if the conversion fails.
      */
-    fun getFileExtension(format: Bitmap.CompressFormat): String {
-        return when (format) {
-            Bitmap.CompressFormat.JPEG -> "jpeg"
-            Bitmap.CompressFormat.PNG -> "png"
-            Bitmap.CompressFormat.WEBP -> "webp"
-            else -> "dat" // Default or unknown
-        }
+    fun convertVideoFile(
+        context: Context,
+        inputUri: Uri,
+        outputFolderUri: Uri,
+        outputFileName: String,
+        targetFormat: String,
+        contentResolver: ContentResolver
+    ): Uri? {
+        Log.w(TAG, "Video conversion is not yet implemented.")
+        return VidConv.convertVideoFile(context, inputUri, outputFolderUri, outputFileName, targetFormat, contentResolver)
+    }
+
+    /**
+     * Initiates a document file conversion.
+     * Delegates the call to DocConv.
+     *
+     * @param context The application context.
+     * @param inputUri The Uri of the input document file.
+     * @param outputFolderUri The Uri of the directory where the converted file should be saved.
+     * @param outputFileName The desired name for the output file.
+     * @param targetFormat The desired output format (e.g., "PDF", "DOCX").
+     * @param contentResolver The ContentResolver instance.
+     * @return The Uri of the newly created converted file, or null if the conversion fails.
+     */
+    fun convertDocumentFile(
+        context: Context,
+        inputUri: Uri,
+        outputFolderUri: Uri,
+        outputFileName: String,
+        targetFormat: String,
+        contentResolver: ContentResolver
+    ): Uri? {
+        Log.w(TAG, "Document conversion is not yet implemented.")
+        return DocConv.convertDocumentFile(context, inputUri, outputFolderUri, outputFileName, targetFormat, contentResolver)
+    }
+
+    /**
+     * Initiates an audio file conversion.
+     * Delegates the call to AudConv.
+     *
+     * @param context The application context.
+     * @param inputUri The Uri of the input audio file.
+     * @param outputFolderUri The Uri of the directory where the converted file should be saved.
+     * @param outputFileName The desired name for the output file.
+     * @param targetFormat The desired output format (e.g., "MP3", "WAV").
+     * @param contentResolver The ContentResolver instance.
+     * @return The Uri of the newly created converted file, or null if the conversion fails.
+     */
+    fun convertAudioFile(
+        context: Context,
+        inputUri: Uri,
+        outputFolderUri: Uri,
+        outputFileName: String,
+        targetFormat: String,
+        contentResolver: ContentResolver
+    ): Uri? {
+        Log.w(TAG, "Audio conversion is not yet implemented.")
+        return AudConv.convertAudioFile(context, inputUri, outputFolderUri, outputFileName, targetFormat, contentResolver)
     }
 
     /**
      * Helper to get the Bitmap.CompressFormat from a string.
+     * This method is now part of ImgConv, but kept here for backward compatibility or direct use if needed.
      */
     fun getCompressFormatFromString(formatString: String): Bitmap.CompressFormat? {
-        return when (formatString.uppercase()) {
-            "JPEG", "JPG" -> Bitmap.CompressFormat.JPEG
-            "PNG" -> Bitmap.CompressFormat.PNG
-            "WEBP" -> Bitmap.CompressFormat.WEBP
-            else -> null
-        }
+        return ImgConv.getCompressFormatFromString(formatString)
     }
 }
