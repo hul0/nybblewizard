@@ -65,7 +65,7 @@ fun TopNavBar(
             color = colors.secondary,
             style = MaterialTheme.typography.displaySmall.copy(
                 fontFamily = FontFamily.Cursive,
-                fontSize =28.sp
+                fontSize = 28.sp
             )
         )
 
