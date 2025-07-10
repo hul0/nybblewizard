@@ -1,5 +1,9 @@
 package com.impom.nybblewizard.app.screens
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,17 +24,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.impom.nybblewizard.app.reusable.TopNavBar
+import kotlin.contracts.contract
 
 /**
  * A blank Conversion Screen.
@@ -47,6 +49,12 @@ import com.impom.nybblewizard.app.reusable.TopNavBar
 fun ConversionScreen(
     onBackClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    var selectedImgUri by remember { mutableStateOf<Uri?>(null) }
+    val launcher = rememberLauncherForActivityResult(
+        contract= ActivityResultContracts.GetContent(),
+        onResult = { uri -> selectedImgUri = uri}
+    )
     MaterialTheme{
         Scaffold (
             topBar = { TopAppBar(
@@ -77,10 +85,13 @@ fun ConversionScreen(
                 )
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Button(onClick = {},
+                Button(onClick = { launcher.launch("image/*")},
                     modifier = Modifier.align(Alignment.End)
                     ) {
                     Text("Cook")
+                }
+                selectedImgUri?.let {
+                    Text("Selected: ${it.lastPathSegment}", maxLines = 1)
                 }
 
             }
