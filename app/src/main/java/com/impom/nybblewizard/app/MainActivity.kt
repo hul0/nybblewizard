@@ -45,7 +45,6 @@ import com.exyte.animatednavbar.AnimatedNavigationBar
 import com.impom.nybblewizard.app.reusable.SettingsDialog
 import com.impom.nybblewizard.app.reusable.TopNavBar
 import com.impom.nybblewizard.app.screens.AboutScreen
-import com.impom.nybblewizard.app.screens.ConversionScreen // Import ConversionScreen
 import com.impom.nybblewizard.app.screens.FAQScreen
 import com.impom.nybblewizard.app.screens.FileShredderScreen
 import com.impom.nybblewizard.app.screens.SupportScreen
@@ -193,43 +192,7 @@ fun MainAppScreen(
                 }
 
                 // Converter Button (New)
-                IconButton(
-                    onClick = {
-                        selectedIndex = 1
-                        navController.navigate(Screen.Converter.route) {
-                            popUpTo(navController.graph.startDestinationId) {
-                                saveState = true
-                            }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .background(
-                            if (selectedIndex == 1) {
-                                Brush.radialGradient(
-                                    colors = listOf(
-                                        screenSpecificPrimaryColors[1].copy(alpha = 0.3f),
-                                        screenSpecificPrimaryColors[1].copy(alpha = 0.1f)
-                                    )
-                                )
-                            } else {
-                                Brush.radialGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color.Transparent
-                                    )
-                                )
-                            }
-                        )
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.SwapHoriz,
-                        contentDescription = "Converter",
-                        tint = if (selectedIndex == 1) screenSpecificPrimaryColors[1] else colors.onSurface
-                    )
-                }
+
 
                 // About Button
                 IconButton(
@@ -374,9 +337,7 @@ fun MainAppScreen(
                     FileShredderScreen(fileShredderViewModel)
                 }
                 composable(Screen.Converter.route) {
-                    ConversionScreen(
-                        onBackClick = { navController.navigateUp() }
-                    )
+
                 }
 
                 composable(Screen.About.route) {
